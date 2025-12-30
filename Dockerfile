@@ -25,7 +25,6 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/app ./app
-COPY routes.yaml.example ./routes.yaml
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV HOST=0.0.0.0
