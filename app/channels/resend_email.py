@@ -71,6 +71,8 @@ class ResendEmailChannel(BaseChannel):
         api_url: str = "https://api.resend.com/emails",
         timeout_s: float = 30.0,
         name: str = "",
+        subject_override: str | None = None,
+        body_override: str | None = None,
     ) -> None:
         self._api_key = api_key
         self._from_email = from_email
@@ -81,6 +83,8 @@ class ResendEmailChannel(BaseChannel):
         self._api_url = api_url
         self._timeout_s = timeout_s
         self._name_override = name.strip()
+        self._subject_override = subject_override
+        self._body_override = body_override
 
         resolved_template_path = Path(template_path) if template_path else _default_template_path()
         self._html_template = _load_template_from_path(resolved_template_path)
@@ -101,9 +105,14 @@ class ResendEmailChannel(BaseChannel):
         return ctx.get("title", "notification")
 
     async def send(self, event: Event) -> bool:
-        ctx = _build_render_context(event)
-        subject = f"{self._subject_prefix}{self._render_subject(ctx)}"
-        html_body = self._html_template.render(**ctx)
+        # Use template-rendered content if provided, otherwise use default rendering
+        if self._subject_override and self._body_override:
+            subject = f"{self._subject_prefix}{self._subject_override}"
+            html_body = self._body_override
+        else:
+            ctx = _build_render_context(event)
+            subject = f"{self._subject_prefix}{self._render_subject(ctx)}"
+            html_body = self._html_template.render(**ctx)
 
         payload: dict[str, Any] = {
             "from": self._from_email,

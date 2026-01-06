@@ -1,0 +1,186 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑项目' if project else '新建项目' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑项目' if project else '新建项目' }}</h1>
+    <p class="text-gray-600 mt-1">
+        <a href="/namespaces/{{ namespace.id }}" class="text-blue-600 hover:underline">← 返回 {{ namespace.name }}</a>
+    </p>
+</div>
+
+<div class="card max-w-lg" x-data="projectForm()">
+    {% if error %}
+    <div class="alert alert-error mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ '/namespaces/' + (namespace.id|string) + '/projects/' + (project.id|string) + '/edit' if project else '/namespaces/' + (namespace.id|string) + '/projects/new' }}">
+        <div class="form-group">
+            <label for="name" class="form-label">项目名称 *</label>
+            <input type="text" id="name" name="name" class="form-input" 
+                   value="{{ project.name if project else '' }}" required
+                   placeholder="例如：数据库监控">
+        </div>
+        
+        <div class="form-group">
+            <label for="description" class="form-label">描述</label>
+            <textarea id="description" name="description" class="form-input" rows="2"
+                      placeholder="可选描述">{{ project.description if project else '' }}</textarea>
+        </div>
+        
+        {% if project %}
+        <div class="form-group">
+            <label class="flex items-center">
+                <input type="checkbox" name="is_active" value="on" class="mr-2"
+                       {{ 'checked' if project.is_active else '' }}>
+                <span class="text-sm">启用项目</span>
+            </label>
+        </div>
+        {% endif %}
+        
+        <div class="border-t border-gray-200 pt-4 mt-4">
+            <h3 class="text-sm font-medium mb-3">通知组绑定</h3>
+            <p class="text-xs text-gray-500 mb-3">选择并排序通知组，工单将按此顺序进行升级通知</p>
+            
+            <div class="form-group">
+                <label class="form-label">已选通知组（拖拽排序）</label>
+                <div class="border border-gray-200 rounded-sm p-2 min-h-[80px] mb-2" id="selected-groups">
+                    <template x-for="(groupId, index) in selectedGroups" :key="groupId">
+                        <div class="flex items-center justify-between bg-gray-50 px-2 py-1 mb-1 border border-gray-200" draggable="true" 
+                             @dragstart="dragStart($event, index)" @dragover.prevent @drop="drop($event, index)">
+                            <span class="text-sm">
+                                <span class="text-gray-400 mr-1" x-text="index + 1 + '.'"></span>
+                                <span x-text="getGroupName(groupId)"></span>
+                            </span>
+                            <button type="button" @click="removeGroup(index)" class="text-red-600 text-xs hover:underline">移除</button>
+                            <input type="hidden" name="notification_group_ids" :value="groupId">
+                        </div>
+                    </template>
+                    <div x-show="selectedGroups.length === 0" class="text-gray-400 text-sm p-2">
+                        尚未选择通知组
+                    </div>
+                </div>
+                
+                <label class="form-label">可用通知组</label>
+                <select @change="addGroup($event.target.value); $event.target.value = ''" class="form-select">
+                    <option value="">选择添加...</option>
+                    {% for group in all_groups %}
+                    <option value="{{ group.id }}" x-show="!selectedGroups.includes('{{ group.id }}')">{{ group.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="border-t border-gray-200 pt-4 mt-4">
+            <h3 class="text-sm font-medium mb-3">通知模板</h3>
+            
+            <div class="form-group">
+                <label for="notification_template_id" class="form-label">选择模板</label>
+                <select id="notification_template_id" name="notification_template_id" class="form-select">
+                    <option value="">使用默认模板</option>
+                    {% for tpl in all_templates %}
+                    <option value="{{ tpl.id }}" 
+                            {% if project and project.notification_template_id == tpl.id|string %}selected{% endif %}>
+                        {{ tpl.name }}{% if tpl.description %} - {{ tpl.description }}{% endif %}
+                        {% if tpl.is_builtin %}(内置){% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="text-xs text-gray-500 mt-1">选择通知消息的格式模板</p>
+            </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-4 mt-4">
+            <h3 class="text-sm font-medium mb-3">升级策略</h3>
+            <p class="text-xs text-amber-600 mb-3 bg-amber-50 p-2 rounded border border-amber-200">
+                ⚠️ 注意：只有 severity 为 <strong>critical</strong> 的工单才会触发自动升级
+            </p>
+            
+            <div class="form-group">
+                <label class="flex items-center">
+                    <input type="checkbox" name="escalation_enabled" value="on" class="mr-2"
+                           {{ 'checked' if project and project.escalation_config.enabled else '' }}>
+                    <span class="text-sm">启用升级策略</span>
+                </label>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">超时时间</label>
+                <div class="radio-group">
+                    {% set current_timeout = project.escalation_config.timeout_minutes if project else 15 %}
+                    {% for minutes in [5, 10, 15, 30, 60] %}
+                    <input type="radio" id="timeout_{{ minutes }}" name="escalation_timeout" value="{{ minutes }}" {{ 'checked' if current_timeout == minutes else '' }}>
+                    <label for="timeout_{{ minutes }}">{{ minutes }}分钟</label>
+                    {% endfor %}
+                </div>
+                <p class="text-xs text-gray-500 mt-2">超过此时间未确认则自动升级到下一通知组</p>
+            </div>
+        </div>
+        
+        <div class="border-t border-gray-200 pt-4 mt-4">
+            <h3 class="text-sm font-medium mb-3">确认通知</h3>
+            
+            <div class="form-group">
+                <label class="flex items-center">
+                    <input type="checkbox" name="notify_on_ack" value="on" class="mr-2"
+                           {{ 'checked' if project and project.notify_on_ack else '' }}>
+                    <span class="text-sm">确认后发送通知</span>
+                </label>
+                <p class="text-xs text-gray-500 mt-2">开启后，工单被确认时会向所有已通知过的通知组发送确认通知</p>
+            </div>
+        </div>
+        
+        <div class="flex gap-2 mt-4">
+            <button type="submit" class="btn-primary">保存</button>
+            <a href="/namespaces/{{ namespace.id }}" class="btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function projectForm() {
+    return {
+        selectedGroups: [
+            {% if project %}
+            {% for gid in project.notification_group_ids %}
+            '{{ gid }}',
+            {% endfor %}
+            {% endif %}
+        ],
+        groupNames: {
+            {% for group in all_groups %}
+            '{{ group.id }}': '{{ group.name }}',
+            {% endfor %}
+        },
+        draggedIndex: null,
+        
+        getGroupName(groupId) {
+            return this.groupNames[groupId] || groupId;
+        },
+        
+        addGroup(groupId) {
+            if (groupId && !this.selectedGroups.includes(groupId)) {
+                this.selectedGroups.push(groupId);
+            }
+        },
+        
+        removeGroup(index) {
+            this.selectedGroups.splice(index, 1);
+        },
+        
+        dragStart(event, index) {
+            this.draggedIndex = index;
+        },
+        
+        drop(event, targetIndex) {
+            if (this.draggedIndex !== null && this.draggedIndex !== targetIndex) {
+                const item = this.selectedGroups.splice(this.draggedIndex, 1)[0];
+                this.selectedGroups.splice(targetIndex, 0, item);
+            }
+            this.draggedIndex = null;
+        }
+    };
+}
+</script>
+{% endblock %}

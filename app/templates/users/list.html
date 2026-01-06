@@ -1,0 +1,60 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}用户管理 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1>用户管理</h1>
+        <p class="text-gray-600 mt-1">管理系统用户</p>
+    </div>
+    <a href="/users/new" class="btn-primary">新建用户</a>
+</div>
+
+<div class="card">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>用户名</th>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+            <tr>
+                <td class="font-medium">{{ u.username }}</td>
+                <td>{{ u.email or '-' }}</td>
+                <td>
+                    {% if u.role.value == 'admin' %}
+                    <span class="badge badge-blue">管理员</span>
+                    {% else %}
+                    <span class="badge badge-gray">普通用户</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if u.is_active %}
+                    <span class="badge badge-green">启用</span>
+                    {% else %}
+                    <span class="badge badge-red">禁用</span>
+                    {% endif %}
+                </td>
+                <td class="text-gray-500">{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="/users/{{ u.id }}" class="text-blue-600 hover:underline mr-2">编辑</a>
+                    {% if u.id != user.id %}
+                    <form method="POST" action="/users/{{ u.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此用户吗？')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+

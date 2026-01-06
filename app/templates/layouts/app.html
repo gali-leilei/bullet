@@ -1,0 +1,72 @@
+{% extends "layouts/base.html" %}
+
+{% block body %}
+<div class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="p-4 border-b border-gray-200">
+            <h1 class="text-lg font-semibold text-gray-900">{{ app_name }}</h1>
+        </div>
+        
+        <nav class="py-2 flex-1 overflow-y-auto">
+            <div class="sidebar-section">
+                <a href="/" class="nav-link block {% if request.url.path == '/' %}nav-link-active{% endif %}">
+                    Dashboard
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">配置管理</div>
+                <a href="/contacts" class="nav-link block {% if '/contacts' in request.url.path %}nav-link-active{% endif %}">
+                    联系人
+                </a>
+                <a href="/notification-groups" class="nav-link block {% if '/notification-groups' in request.url.path %}nav-link-active{% endif %}">
+                    通知组
+                </a>
+                <a href="/notification-templates" class="nav-link block {% if '/notification-templates' in request.url.path %}nav-link-active{% endif %}">
+                    通知模板
+                </a>
+                <a href="/namespaces" class="nav-link block {% if '/namespaces' in request.url.path %}nav-link-active{% endif %}">
+                    命名空间
+                </a>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="sidebar-title">监控</div>
+                <a href="/tickets" class="nav-link block {% if '/tickets' in request.url.path %}nav-link-active{% endif %}">
+                    工单
+                </a>
+            </div>
+            
+            {% if user and user.is_admin() %}
+            <div class="sidebar-section">
+                <div class="sidebar-title">系统</div>
+                <a href="/users" class="nav-link block {% if '/users' in request.url.path %}nav-link-active{% endif %}">
+                    用户管理
+                </a>
+            </div>
+            {% endif %}
+        </nav>
+        
+        <div class="border-t border-gray-200 p-4">
+            <div class="flex items-center justify-between text-sm">
+                <span class="text-gray-600">{{ user.username if user else 'Guest' }}</span>
+                <a href="/logout" class="text-gray-500 hover:text-gray-700">退出</a>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="flex-1 p-6 overflow-y-auto">
+        {% block flash %}
+        {% if flash_message %}
+        <div class="alert alert-{{ flash_type|default('info') }} mb-4">
+            {{ flash_message }}
+        </div>
+        {% endif %}
+        {% endblock %}
+        
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

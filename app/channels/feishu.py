@@ -6,7 +6,7 @@ import base64
 import time
 import logging
 import json
-from datetime import datetime, timezone
+from datetime import timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 import os
@@ -18,6 +18,10 @@ from app.models.alert import Alert, AlertGroup
 from app.models.event import Event
 
 logger = logging.getLogger(__name__)
+
+
+# Pre-rendered card from template (passed via event.meta)
+TEMPLATE_CARD_KEY = "template_card"
 
 
 class FeishuChannel(BaseChannel):
@@ -147,10 +151,110 @@ class FeishuChannel(BaseChannel):
         # Feishu "text" message
         return {"msg_type": "text", "content": {"text": text}}
 
+    def _build_ticket_card(self, event: Event) -> dict[str, Any]:
+        """Build a card message for ticket notification with ack link."""
+        from app.config import get_settings
+        settings = get_settings()
+
+        meta = event.meta or {}
+        ticket_id = meta.get("ticket_id", "")
+        ack_token = meta.get("ack_token", "")
+        title = meta.get("title", "") or event.payload.get("title", "Alert")
+        description = meta.get("description", "") or ""
+        severity = meta.get("severity", "") or "info"
+
+        # Build ack URL
+        ack_url = f"{settings.base_url}/ack/{ticket_id}?token={ack_token}&format=html"
+
+        # Severity color
+        color_map = {
+            "critical": "red",
+            "error": "red",
+            "warning": "orange",
+            "info": "blue",
+        }
+        color = color_map.get(severity.lower(), "blue")
+
+        header = {
+            "title": {"tag": "plain_text", "content": f"🔔 {title}"},
+            "template": color,
+        }
+
+        elements: list[dict[str, Any]] = []
+
+        if description:
+            elements.append({
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": description[:500]},
+            })
+
+        # Labels
+        if event.labels:
+            label_text = " | ".join(f"`{k}={v}`" for k, v in list(event.labels.items())[:5])
+            elements.append({
+                "tag": "div",
+                "text": {"tag": "lark_md", "content": f"**标签:** {label_text}"},
+            })
+
+        elements.append({"tag": "hr"})
+
+        # Action button
+        elements.append({
+            "tag": "action",
+            "actions": [
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "✅ 确认工单"},
+                    "type": "primary",
+                    "url": ack_url,
+                },
+                {
+                    "tag": "button",
+                    "text": {"tag": "plain_text", "content": "📋 查看详情"},
+                    "type": "default",
+                    "url": f"{settings.base_url}/tickets/{ticket_id}",
+                },
+            ],
+        })
+
+        # Footer
+        elements.append({
+            "tag": "note",
+            "elements": [{
+                "tag": "plain_text",
+                "content": f"来源: {event.source} | Ticket: {ticket_id[:8]}...",
+            }],
+        })
+
+        return {
+            "msg_type": "interactive",
+            "card": {"header": header, "elements": elements},
+        }
+
+    def _build_card_from_template(self, card_content: dict[str, Any]) -> dict[str, Any]:
+        """Build Feishu message from pre-rendered template card."""
+        return {
+            "msg_type": "interactive",
+            "card": card_content,
+        }
+
     async def send(self, event: Event) -> bool:
-        # If this is an alert event and looks like AlertGroup payload, keep the rich card.
+        # Determine message format based on event content
         message: dict[str, Any]
-        if event.type == "alert":
+
+        # Check if a pre-rendered template card is available
+        if event.meta and event.meta.get(TEMPLATE_CARD_KEY):
+            template_card = event.meta[TEMPLATE_CARD_KEY]
+            if isinstance(template_card, dict):
+                message = self._build_card_from_template(template_card)
+            else:
+                logger.warning("Invalid template card format, falling back to default")
+                message = self._build_ticket_card(event)
+        # If meta contains ticket_id, use the ticket card format with ack button
+        elif event.meta and event.meta.get("ticket_id"):
+            message = self._build_ticket_card(event)
+        elif event.type == "alert":
+            # If this is an alert event and looks like AlertGroup payload, use rich card
             try:
                 alert_group = AlertGroup.model_validate(event.payload)
                 message = self._build_card_message(alert_group)

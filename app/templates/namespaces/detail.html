@@ -1,0 +1,93 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ namespace.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-600 text-sm">
+                <a href="/namespaces" class="text-blue-600 hover:underline">命名空间</a> /
+            </p>
+            <h1>{{ namespace.name }}</h1>
+            <p class="text-gray-500 mt-1">{{ namespace.description or '无描述' }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/namespaces/{{ namespace.id }}/edit" class="btn-secondary">编辑</a>
+            <a href="/namespaces/{{ namespace.id }}/projects/new" class="btn-primary">新建项目</a>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-6">
+    <div class="card-header">
+        <h2>项目列表</h2>
+    </div>
+    {% if projects %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>项目名称</th>
+                <th>状态</th>
+                <th>升级策略</th>
+                <th>通知组</th>
+                <th>Webhook URL</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for project in projects %}
+            <tr>
+                <td class="font-medium">
+                    <a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}" class="text-blue-600 hover:underline">
+                        {{ project.name }}
+                    </a>
+                </td>
+                <td>
+                    {% if project.is_silenced() %}
+                    <span class="badge badge-orange">🔇 静默</span>
+                    {% elif project.is_active %}
+                    <span class="badge badge-green">启用</span>
+                    {% else %}
+                    <span class="badge badge-gray">禁用</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if project.escalation_config.enabled %}
+                    <span class="text-sm">{{ project.escalation_config.timeout_minutes }}分钟</span>
+                    {% else %}
+                    <span class="text-gray-400">禁用</span>
+                    {% endif %}
+                </td>
+                <td>{{ project_group_counts.get(project.id|string, 0) }}</td>
+                <td x-data="{ copied: false }">
+                    <div class="flex items-center gap-1">
+                        <code class="text-xs bg-gray-100 px-1 truncate max-w-32" title="{{ base_url }}/webhook/{{ namespace.slug }}/{{ project.id }}">.../{{ namespace.slug }}/{{ project.id }}</code>
+                        <button type="button" 
+                                @click="navigator.clipboard.writeText('{{ base_url }}/webhook/{{ namespace.slug }}/{{ project.id }}'); copied = true; setTimeout(() => copied = false, 1500)"
+                                class="text-gray-400 hover:text-gray-600 p-0.5"
+                                :title="copied ? '已复制' : '复制'">
+                            <svg x-show="!copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <svg x-show="copied" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+                <td>
+                    <a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}" class="text-blue-600 hover:underline mr-2">查看</a>
+                    <form method="POST" action="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此项目吗？')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm p-4">暂无项目，<a href="/namespaces/{{ namespace.id }}/projects/new" class="text-blue-600 hover:underline">创建第一个项目</a></p>
+    {% endif %}
+</div>
+{% endblock %}

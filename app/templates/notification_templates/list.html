@@ -1,0 +1,158 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}通知模板 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1>通知模板</h1>
+            <p class="text-gray-500 mt-1">管理通知消息模板，可在项目中选择使用</p>
+        </div>
+        <a href="/notification-templates/new" class="btn-primary">新建模板</a>
+    </div>
+</div>
+
+<div class="card">
+    {% if templates %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>描述</th>
+                <th>类型</th>
+                <th>渠道配置</th>
+                <th>更新时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for template in templates %}
+            <tr>
+                <td class="font-medium">{{ template.name }}</td>
+                <td class="text-gray-500">{{ template.description or '-' }}</td>
+                <td>
+                    {% if template.is_builtin %}
+                    <span class="badge badge-blue">内置</span>
+                    {% else %}
+                    <span class="badge badge-gray">自定义</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="flex gap-1 flex-wrap">
+                        {% if template.feishu_card %}
+                        <span class="badge badge-green">飞书</span>
+                        {% endif %}
+                        {% if template.email_subject or template.email_body %}
+                        <span class="badge badge-yellow">邮件</span>
+                        {% endif %}
+                        {% if template.sms_message %}
+                        <span class="badge badge-purple">短信</span>
+                        {% endif %}
+                        {% if not template.feishu_card and not template.email_subject and not template.sms_message %}
+                        <span class="text-gray-400">未配置</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="text-gray-500 text-sm">{{ template.updated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="/notification-templates/{{ template.id }}/edit" class="text-blue-600 hover:underline mr-2">编辑</a>
+                    {% if not template.is_builtin %}
+                    <form method="POST" action="/notification-templates/{{ template.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此模板吗？使用该模板的项目将回退到默认模板。')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                    {% else %}
+                    <span class="text-gray-400">不可删除</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm p-4">暂无模板，<a href="/notification-templates/new" class="text-blue-600 hover:underline">创建第一个模板</a></p>
+    {% endif %}
+</div>
+
+<div class="card mt-6">
+    <h3 class="mb-2">模板变量参考</h3>
+    <p class="text-gray-500 text-sm mb-3">模板使用 Jinja2 语法，以下变量可在模板中使用：</p>
+    <table class="table text-sm">
+        <thead>
+            <tr>
+                <th>变量</th>
+                <th>说明</th>
+                <th>示例</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>ticket.id</code></td>
+                <td>工单 ID</td>
+                <td>678abc...</td>
+            </tr>
+            <tr>
+                <td><code>ticket.title</code></td>
+                <td>标题</td>
+                <td>CPU 使用率过高</td>
+            </tr>
+            <tr>
+                <td><code>ticket.description</code></td>
+                <td>描述</td>
+                <td>服务器负载超过阈值</td>
+            </tr>
+            <tr>
+                <td><code>ticket.severity</code></td>
+                <td>严重级别</td>
+                <td>critical</td>
+            </tr>
+            <tr>
+                <td><code>source</code></td>
+                <td>来源类型</td>
+                <td>grafana</td>
+            </tr>
+            <tr>
+                <td><code>payload.*</code></td>
+                <td>原始 webhook 数据</td>
+                <td>任意字段</td>
+            </tr>
+            <tr>
+                <td><code>parsed.*</code></td>
+                <td>解析后的结构化数据</td>
+                <td>parsed.alerts[0].labels.alertname</td>
+            </tr>
+            <tr>
+                <td><code>ack_url</code></td>
+                <td>确认链接</td>
+                <td>https://...</td>
+            </tr>
+            <tr>
+                <td><code>detail_url</code></td>
+                <td>详情链接</td>
+                <td>https://...</td>
+            </tr>
+            <tr>
+                <td><code>is_escalated</code></td>
+                <td>是否是升级通知</td>
+                <td>true / false</td>
+            </tr>
+            <tr>
+                <td><code>is_repeated</code></td>
+                <td>是否是重复通知</td>
+                <td>true / false</td>
+            </tr>
+            <tr>
+                <td><code>notification_count</code></td>
+                <td>当前通知次数</td>
+                <td>3</td>
+            </tr>
+            <tr>
+                <td><code>notification_label</code></td>
+                <td>通知状态标签</td>
+                <td>已升级到 L2 / 第3次通知</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+

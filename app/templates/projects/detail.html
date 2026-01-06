@@ -1,0 +1,253 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ project.name }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-600 text-sm">
+                <a href="/namespaces" class="text-blue-600 hover:underline">命名空间</a> /
+                <a href="/namespaces/{{ namespace.id }}" class="text-blue-600 hover:underline">{{ namespace.name }}</a> /
+            </p>
+            <h1>{{ project.name }}</h1>
+            <p class="text-gray-500 mt-1">{{ project.description or '无描述' }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/edit" class="btn-secondary">编辑</a>
+        </div>
+    </div>
+</div>
+
+<!-- Silence Banner -->
+{% if project.is_silenced() %}
+<div class="alert alert-warning mb-6 flex items-center justify-between">
+    <div>
+        <span class="font-medium">🔇 项目已静默</span>
+        <span class="ml-2">剩余时间：{{ project.silence_remaining() }}</span>
+    </div>
+    <form method="POST" action="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/unsilence" class="inline">
+        <button type="submit" class="btn-secondary text-sm">取消静默</button>
+    </form>
+</div>
+{% endif %}
+
+<!-- Webhook URL -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h2>Webhook 配置</h2>
+    </div>
+    <div class="space-y-2">
+        <div>
+            <label class="text-sm text-gray-500">Webhook URL</label>
+            <div class="flex items-center gap-2 mt-1">
+                <code class="text-sm bg-gray-100 px-2 py-1 flex-1 break-all">{{ base_url }}/webhook/{{ namespace.slug }}/{{ project.id }}</code>
+            </div>
+        </div>
+        <div>
+            <label class="text-sm text-gray-500">请求示例</label>
+            <code class="text-xs bg-gray-100 px-2 py-1 block mt-1">POST {{ base_url }}/webhook/{{ namespace.slug }}/{{ project.id }}?source=grafana</code>
+        </div>
+    </div>
+</div>
+
+<!-- Project Info -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="card">
+        <div class="card-header">
+            <h2>项目信息</h2>
+        </div>
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td class="font-medium w-32">状态</td>
+                    <td>
+                        {% if project.is_active %}
+                        <span class="badge badge-green">启用</span>
+                        {% else %}
+                        <span class="badge badge-gray">禁用</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-medium">创建时间</td>
+                    <td>{{ project.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2>升级策略</h2>
+        </div>
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td class="font-medium w-32">状态</td>
+                    <td>
+                        {% if project.escalation_config.enabled %}
+                        <span class="badge badge-green">启用</span>
+                        {% else %}
+                        <span class="badge badge-gray">禁用</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td class="font-medium">超时时间</td>
+                    <td>{{ project.escalation_config.timeout_minutes }} 分钟</td>
+                </tr>
+                <tr>
+                    <td class="font-medium">升级路径</td>
+                    <td>{{ bound_groups|length }} 级</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>静默控制</h2>
+        </div>
+        <div class="p-3">
+            {% if project.is_silenced() %}
+            <div class="text-center">
+                <div class="text-orange-600 font-medium mb-2">🔇 已静默</div>
+                <div class="text-sm text-gray-500 mb-3">剩余 {{ project.silence_remaining() }}</div>
+                <form method="POST" action="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/unsilence">
+                    <button type="submit" class="btn-secondary w-full">取消静默</button>
+                </form>
+            </div>
+            {% else %}
+            <form method="POST" action="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/silence">
+                <div class="mb-3">
+                    <label class="form-label">静默时长</label>
+                    <div class="radio-group">
+                        {% for minutes, label in silence_options %}
+                        <input type="radio" id="silence_{{ minutes }}" name="duration" value="{{ minutes }}" {{ 'checked' if loop.first else '' }}>
+                        <label for="silence_{{ minutes }}">{{ label }}</label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <button type="submit" class="btn-secondary w-full">🔇 开始静默</button>
+                <p class="text-xs text-gray-500 mt-2">静默期间不发送通知，但仍创建工单</p>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Test Message -->
+<div class="card mb-6">
+    <div class="card-header">
+        <h2>发送测试消息</h2>
+    </div>
+    {% if test_result %}
+    <div class="p-3 border-b border-gray-200 {% if test_result.success %}bg-green-50{% else %}bg-red-50{% endif %}">
+        <div class="flex items-start gap-2">
+            {% if test_result.success %}
+            <span class="text-green-600">✓</span>
+            <div>
+                <p class="font-medium text-green-700">{{ test_result.message }}</p>
+                {% if test_result.details %}
+                <ul class="text-sm text-green-600 mt-1">
+                    {% for channel, success in test_result.details.items() %}
+                    <li>{{ channel }}: {% if success %}成功{% else %}失败{% endif %}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% else %}
+            <span class="text-red-600">✗</span>
+            <div>
+                <p class="font-medium text-red-700">{{ test_result.message }}</p>
+                {% if test_result.details %}
+                <ul class="text-sm text-red-600 mt-1">
+                    {% for channel, success in test_result.details.items() %}
+                    <li>{{ channel }}: {% if success %}成功{% else %}失败{% endif %}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <form method="POST" action="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/test" class="p-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+                <label class="form-label">标题</label>
+                <input type="text" name="title" class="form-input" placeholder="测试告警" value="">
+            </div>
+            <div>
+                <label class="form-label">严重级别</label>
+                <select name="severity" class="form-input">
+                    {% for value, label in severity_options %}
+                    <option value="{{ value }}" {{ 'selected' if value == 'warning' else '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex items-end">
+                <button type="submit" class="btn-primary">📤 发送测试</button>
+            </div>
+        </div>
+        <div>
+            <label class="form-label">描述</label>
+            <textarea name="description" class="form-input" rows="2" placeholder="这是一条测试消息，用于验证通知配置是否正确。"></textarea>
+        </div>
+        <p class="text-xs text-gray-500 mt-2">测试消息将发送到第一级通知组（{{ bound_groups[0].name if bound_groups else '未配置' }}），不会创建实际工单。</p>
+    </form>
+</div>
+
+<!-- Notification Groups (Bound) -->
+<div class="card">
+    <div class="card-header flex items-center justify-between">
+        <h2>通知组（升级路径）</h2>
+        <a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/edit" class="btn-secondary text-sm">编辑绑定</a>
+    </div>
+    {% if bound_groups %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>顺序</th>
+                <th>名称</th>
+                <th>渠道配置</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in bound_groups %}
+            <tr>
+                <td>
+                    <span class="badge badge-blue">{{ loop.index }}</span>
+                </td>
+                <td class="font-medium">
+                    <a href="/notification-groups/{{ group.id }}/edit" class="text-blue-600 hover:underline">{{ group.name }}</a>
+                </td>
+                <td>
+                    {% for config in group.channel_configs %}
+                    <div class="text-sm mb-1">
+                        <span class="badge badge-gray">{{ config.type.value }}</span>
+                        {% for contact_id in config.contact_ids %}
+                        {% set contact = contacts_map.get(contact_id) %}
+                        {% if contact %}
+                        <span class="text-gray-600">{{ contact.name }}</span>{% if not loop.last %}, {% endif %}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% if not group.channel_configs %}
+                    <span class="text-gray-400">未配置</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="p-3 text-xs text-gray-500 border-t border-gray-200">
+        工单创建时通知第 1 级，超时未确认则依次升级到下一级。
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-sm p-4">暂未绑定通知组，请<a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}/edit" class="text-blue-600 hover:underline">编辑项目</a>添加通知组</p>
+    {% endif %}
+</div>
+{% endblock %}

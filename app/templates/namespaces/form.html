@@ -1,0 +1,47 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑命名空间' if namespace else '新建命名空间' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑命名空间' if namespace else '新建命名空间' }}</h1>
+    <p class="text-gray-600 mt-1">
+        <a href="/namespaces" class="text-blue-600 hover:underline">← 返回命名空间列表</a>
+    </p>
+</div>
+
+<div class="card max-w-lg">
+    {% if error %}
+    <div class="alert alert-error mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ '/namespaces/' + (namespace.id|string) + '/edit' if namespace else '/namespaces/new' }}">
+        <div class="form-group">
+            <label for="name" class="form-label">名称 *</label>
+            <input type="text" id="name" name="name" class="form-input" 
+                   value="{{ namespace.name if namespace else '' }}" required
+                   placeholder="例如：基础设施监控">
+        </div>
+        
+        <div class="form-group">
+            <label for="slug" class="form-label">Slug</label>
+            <input type="text" id="slug" name="slug" class="form-input"
+                   value="{{ namespace.slug if namespace else '' }}"
+                   placeholder="自动生成（例如：infra）" pattern="[a-z0-9-]+">
+            <p class="text-xs text-gray-500 mt-1">用于 Webhook URL，只允许小写字母、数字和连字符，留空自动生成</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="description" class="form-label">描述</label>
+            <textarea id="description" name="description" class="form-input" rows="2"
+                      placeholder="可选描述">{{ namespace.description if namespace else '' }}</textarea>
+        </div>
+        
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">保存</button>
+            <a href="/namespaces" class="btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

@@ -1,0 +1,13 @@
+{
+  "name": "bullet-frontend",
+  "version": "0.4.0",
+  "private": true,
+  "scripts": {
+    "build": "tailwindcss -i ./src/input.css -o ../app/static/css/output.css --minify",
+    "watch": "tailwindcss -i ./src/input.css -o ../app/static/css/output.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.0.0",
+    "tailwindcss": "^4.0.0"
+  }
+}

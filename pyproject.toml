@@ -1,7 +1,7 @@
 [project]
 name = "bullet"
-version = "0.3.0"
-description = "Webhook relay service for alerts"
+version = "0.4.0"
+description = "Webhook relay service for alerts with WebUI management"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,17 @@ dependencies = [
     "jinja2>=3.1.0",
     "pydantic-settings>=2.6.0",
     "pyyaml>=6.0.0",
+    # MongoDB
+    "beanie>=1.26.0",
+    "motor>=3.6.0",
+    # Session & Auth
+    "itsdangerous>=2.2.0",
+    "starlette-session>=0.4.0",
+    "bcrypt>=4.0.0",
+    # Background tasks
+    "apscheduler>=3.10.0",
+    # Twilio SMS
+    "twilio>=9.0.0",
 ]
 
 [project.scripts]

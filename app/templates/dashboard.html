@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}Dashboard - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>Dashboard</h1>
+    <p class="text-gray-600 mt-1">系统概览</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+        <div class="text-sm text-gray-500 mb-1">命名空间</div>
+        <div class="text-2xl font-semibold">{{ stats.namespaces }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-gray-500 mb-1">项目</div>
+        <div class="text-2xl font-semibold">{{ stats.projects }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-gray-500 mb-1">联系人</div>
+        <div class="text-2xl font-semibold">{{ stats.contacts }}</div>
+    </div>
+    <div class="card">
+        <div class="text-sm text-gray-500 mb-1">待处理工单</div>
+        <div class="text-2xl font-semibold text-yellow-600">{{ stats.pending_tickets }}</div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="card">
+        <div class="card-header">
+            <h2>最近工单</h2>
+        </div>
+        {% if recent_tickets %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>标题</th>
+                    <th>状态</th>
+                    <th>时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in recent_tickets %}
+                <tr>
+                    <td>
+                        <a href="/tickets/{{ ticket.id }}">{{ ticket.title or ticket.source }}</a>
+                    </td>
+                    <td>
+                        {% if ticket.status.value == 'pending' %}
+                        <span class="badge badge-yellow">待处理</span>
+                        {% elif ticket.status.value == 'acknowledged' %}
+                        <span class="badge badge-blue">已确认</span>
+                        {% elif ticket.status.value == 'resolved' %}
+                        <span class="badge badge-green">已解决</span>
+                        {% else %}
+                        <span class="badge badge-red">已升级</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-gray-500">{{ ticket.created_at.strftime('%m-%d %H:%M') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-gray-500 text-sm">暂无工单</p>
+        {% endif %}
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2>系统信息</h2>
+        </div>
+        <table class="table">
+            <tbody>
+                <tr>
+                    <td class="font-medium w-32">版本</td>
+                    <td>0.4.0</td>
+                </tr>
+                <tr>
+                    <td class="font-medium">用户数</td>
+                    <td>{{ stats.users }}</td>
+                </tr>
+                <tr>
+                    <td class="font-medium">通知组</td>
+                    <td>{{ stats.notification_groups }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+

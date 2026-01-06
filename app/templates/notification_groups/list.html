@@ -1,0 +1,72 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}通知组 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1>通知组</h1>
+            <p class="text-gray-500 mt-1">管理全局通知组，可在项目中绑定使用</p>
+        </div>
+        <a href="/notification-groups/new" class="btn-primary">新建通知组</a>
+    </div>
+</div>
+
+<div class="card">
+    {% if groups %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>描述</th>
+                <th>重复间隔</th>
+                <th>渠道配置</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for group in groups %}
+            <tr>
+                <td class="font-medium">{{ group.name }}</td>
+                <td class="text-gray-500">{{ group.description or '-' }}</td>
+                <td>
+                    {% if group.repeat_interval %}
+                    <span class="badge badge-blue">{{ group.repeat_interval }}分钟</span>
+                    {% else %}
+                    <span class="text-gray-400">不重复</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% for config in group.channel_configs %}
+                    <div class="text-sm mb-1">
+                        <span class="badge badge-gray">{{ config.type.value }}</span>
+                        {% for contact_id in config.contact_ids %}
+                        {% set contact = contacts_map.get(contact_id) %}
+                        {% if contact %}
+                        <span class="text-gray-600">{{ contact.name }}</span>{% if not loop.last %}, {% endif %}
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                    {% if not group.channel_configs %}
+                    <span class="text-gray-400">未配置</span>
+                    {% endif %}
+                </td>
+                <td class="text-gray-500 text-sm">{{ group.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="/notification-groups/{{ group.id }}/edit" class="text-blue-600 hover:underline mr-2">编辑</a>
+                    <form method="POST" action="/notification-groups/{{ group.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此通知组吗？删除后，绑定该通知组的项目将失去此通知组的配置。')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm p-4">暂无通知组，<a href="/notification-groups/new" class="text-blue-600 hover:underline">创建第一个通知组</a></p>
+    {% endif %}
+</div>
+{% endblock %}

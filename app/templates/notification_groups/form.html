@@ -1,0 +1,122 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑通知组' if group else '新建通知组' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑通知组' if group else '新建通知组' }}</h1>
+    <p class="text-gray-600 mt-1">
+        <a href="/notification-groups" class="text-blue-600 hover:underline">← 返回通知组列表</a>
+    </p>
+</div>
+
+<div class="card max-w-2xl" x-data="notificationGroupForm()">
+    {% if error %}
+    <div class="alert alert-error mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ '/notification-groups/' + (group.id|string) + '/edit' if group else '/notification-groups/new' }}">
+        <div class="form-group">
+            <label for="name" class="form-label">通知组名称 *</label>
+            <input type="text" id="name" name="name" class="form-input" 
+                   value="{{ group.name if group else '' }}" required
+                   placeholder="例如：值班组">
+        </div>
+        
+        <div class="form-group">
+            <label for="description" class="form-label">描述</label>
+            <textarea id="description" name="description" class="form-input" rows="2"
+                      placeholder="可选描述">{{ group.description if group else '' }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">未确认重复发送间隔</label>
+            <div class="radio-group">
+                {% for value, label in repeat_interval_options %}
+                <input type="radio" id="repeat_interval_{{ loop.index }}" name="repeat_interval" 
+                       value="{{ value if value is not none else '' }}"
+                       {{ 'checked' if (group and group.repeat_interval == value) or (not group and value is none) else '' }}>
+                <label for="repeat_interval_{{ loop.index }}">{{ label }}</label>
+                {% endfor %}
+            </div>
+            <p class="text-xs text-gray-500 mt-2">工单未确认时，按此间隔重复发送通知（升级前）</p>
+        </div>
+        
+        <div class="border-t border-gray-200 pt-4 mt-4">
+            <div class="flex items-center justify-between mb-3">
+                <h3 class="text-sm font-medium">渠道配置</h3>
+                <button type="button" @click="addChannel()" class="btn-secondary text-sm">添加渠道</button>
+            </div>
+            
+            <input type="hidden" name="channel_count" :value="channels.length">
+            
+            <template x-for="(channel, index) in channels" :key="index">
+                <div class="border border-gray-200 rounded-sm p-3 mb-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium">渠道 <span x-text="index + 1"></span></span>
+                        <button type="button" @click="removeChannel(index)" class="text-red-600 text-sm hover:underline">删除</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label class="form-label">渠道类型</label>
+                            <select :name="'channel_' + index + '_type'" x-model="channel.type" class="form-select">
+                                {% for ct in channel_types %}
+                                <option value="{{ ct }}">{{ ct }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="form-label">联系人</label>
+                            <select :name="'channel_' + index + '_contacts'" x-model="channel.contacts" class="form-select" multiple size="4">
+                                {% for contact in contacts %}
+                                <option value="{{ contact.id }}">{{ contact.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="text-xs text-gray-500 mt-1">按住 Ctrl/Cmd 多选</p>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+            <div x-show="channels.length === 0" class="text-gray-500 text-sm">
+                暂无渠道配置，点击"添加渠道"开始配置
+            </div>
+        </div>
+        
+        <div class="flex gap-2 mt-4">
+            <button type="submit" class="btn-primary">保存</button>
+            <a href="/notification-groups" class="btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function notificationGroupForm() {
+    return {
+        channels: [
+            {% if group %}
+            {% for config in group.channel_configs %}
+            {
+                type: '{{ config.type.value }}',
+                contacts: {{ config.contact_ids | tojson }}
+            },
+            {% endfor %}
+            {% endif %}
+        ],
+        
+        addChannel() {
+            this.channels.push({
+                type: 'feishu',
+                contacts: []
+            });
+        },
+        
+        removeChannel(index) {
+            this.channels.splice(index, 1);
+        }
+    };
+}
+</script>
+{% endblock %}

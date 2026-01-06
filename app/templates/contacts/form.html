@@ -1,0 +1,63 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑联系人' if contact else '新建联系人' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑联系人' if contact else '新建联系人' }}</h1>
+    <p class="text-gray-600 mt-1">
+        <a href="/contacts" class="text-blue-600 hover:underline">← 返回联系人列表</a>
+    </p>
+</div>
+
+<div class="card max-w-lg">
+    {% if error %}
+    <div class="alert alert-error mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ '/contacts/' + (contact.id|string) if contact else '/contacts/new' }}">
+        <div class="form-group">
+            <label for="name" class="form-label">名称 *</label>
+            <input type="text" id="name" name="name" class="form-input" 
+                   value="{{ contact.name if contact else '' }}" required
+                   placeholder="例如：值班群机器人、张三">
+        </div>
+        
+        <div class="form-group">
+            <label for="phones" class="form-label">手机号</label>
+            <input type="text" id="phones" name="phones" class="form-input"
+                   value="{{ contact.phones|join(', ') if contact else '' }}"
+                   placeholder="多个号码用逗号分隔">
+            <p class="text-xs text-gray-500 mt-1">用于短信通知，多个号码用逗号分隔</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="emails" class="form-label">邮箱</label>
+            <input type="text" id="emails" name="emails" class="form-input"
+                   value="{{ contact.emails|join(', ') if contact else '' }}"
+                   placeholder="多个邮箱用逗号分隔">
+            <p class="text-xs text-gray-500 mt-1">用于邮件通知，多个邮箱用逗号分隔</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="feishu_webhook_url" class="form-label">飞书 Webhook URL</label>
+            <input type="url" id="feishu_webhook_url" name="feishu_webhook_url" class="form-input"
+                   value="{{ contact.feishu_webhook_url if contact else '' }}"
+                   placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx">
+            <p class="text-xs text-gray-500 mt-1">用于飞书机器人通知</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="note" class="form-label">备注</label>
+            <textarea id="note" name="note" class="form-input" rows="2"
+                      placeholder="可选备注信息">{{ contact.note if contact else '' }}</textarea>
+        </div>
+        
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">保存</button>
+            <a href="/contacts" class="btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

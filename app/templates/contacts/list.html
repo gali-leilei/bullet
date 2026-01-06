@@ -1,0 +1,79 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}联系人管理 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1>联系人管理</h1>
+        <p class="text-gray-600 mt-1">管理通知联系人（号码簿）</p>
+    </div>
+    {% if user.is_admin() %}
+    <a href="/contacts/new" class="btn-primary">新建联系人</a>
+    {% else %}
+    <span class="btn-secondary opacity-50 cursor-not-allowed">新建联系人</span>
+    {% endif %}
+</div>
+
+<div class="card">
+    {% if contacts %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>手机号</th>
+                <th>邮箱</th>
+                <th>飞书机器人</th>
+                <th>备注</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for contact in contacts %}
+            <tr>
+                <td class="font-medium">{{ contact.name }}</td>
+                <td>
+                    {% if contact.phones %}
+                    {{ contact.phones|join(', ') }}
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if contact.emails %}
+                    {{ contact.emails|join(', ') }}
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if contact.feishu_webhook_url %}
+                    <span class="badge badge-green">已配置</span>
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+                <td class="text-gray-500 max-w-xs truncate">{{ contact.note or '-' }}</td>
+                <td>
+                    {% if user.is_admin() %}
+                    <a href="/contacts/{{ contact.id }}" class="text-blue-600 hover:underline mr-2">编辑</a>
+                    <form method="POST" action="/contacts/{{ contact.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此联系人吗？')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                    {% else %}
+                    <span class="text-gray-400 cursor-not-allowed mr-2">编辑</span>
+                    <span class="text-gray-400 cursor-not-allowed">删除</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm">
+        暂无联系人{% if user.is_admin() %}，<a href="/contacts/new" class="text-blue-600 hover:underline">创建第一个联系人</a>{% endif %}
+    </p>
+    {% endif %}
+</div>
+{% endblock %}
+

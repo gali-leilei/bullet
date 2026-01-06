@@ -1,17 +1,20 @@
-"""Bullet - FastAPI application for webhook relay."""
+"""Bullet - FastAPI application for webhook relay with WebUI management."""
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator
+from typing import AsyncGenerator
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, status
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, status
+from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import get_settings
-from app.router import AlertRouter, load_routes_config
-from app.sources.grafana import GrafanaSource
+from app.database import close_db, init_db
 from app.sources.base import BaseSource
+from app.sources.grafana import GrafanaSource
 
 # Configure logging
 logging.basicConfig(
@@ -20,9 +23,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global router instance
-router: AlertRouter | None = None
-
 # Source parsers registry
 sources: dict[str, BaseSource] = {}
 
@@ -30,167 +30,152 @@ sources: dict[str, BaseSource] = {}
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler for startup/shutdown."""
-    global router
-
     settings = get_settings()
 
     # Configure logging level
     logging.getLogger().setLevel(settings.log_level.upper())
 
+    # Initialize MongoDB
+    await init_db()
+
+    # Create initial admin user if needed
+    from app.auth.init_admin import ensure_admin_exists
+    await ensure_admin_exists()
+
+    # Ensure built-in notification templates exist
+    from app.services.template import TemplateService
+    await TemplateService.ensure_builtin_templates()
+
     # Register source parsers
     sources["grafana"] = GrafanaSource()
     logger.info(f"Registered {len(sources)} source parser(s): {list(sources.keys())}")
 
-    # Load routes configuration
-    try:
-        routes_config = load_routes_config(settings.routes_config_path)
-        router = AlertRouter(routes_config)
-        logger.info(
-            f"Loaded {len(routes_config.routes)} route(s) from {settings.routes_config}"
-        )
-    except FileNotFoundError:
-        logger.error(
-            f"Routes config not found: {settings.routes_config}. "
-            "Create a routes.yaml file or set ROUTES_CONFIG environment variable."
-        )
-        router = None
-    except Exception as e:
-        logger.exception(f"Failed to load routes config: {e}")
-        router = None
+    # Start escalation scheduler
+    from app.services.escalation import start_scheduler, stop_scheduler
+    start_scheduler()
 
     logger.info("Bullet started")
 
     yield
 
     # Cleanup on shutdown
-    router = None
+    stop_scheduler()
+    await close_db()
     sources.clear()
     logger.info("Bullet stopped")
 
 
+# Create FastAPI app
 app = FastAPI(
     title="Bullet",
-    description="Webhook relay service for alerts with source-based and label-based routing",
-    version="0.3.0",
+    description="Webhook relay service for alerts with WebUI management",
+    version="0.4.0",
     lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
 )
 
+# Add session middleware
+settings = get_settings()
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.secret_key,
+    session_cookie=settings.session_cookie_name,
+    max_age=settings.session_max_age,
+    same_site="lax",
+    https_only=False,  # Set to True in production with HTTPS
+)
 
+# Mount static files
+import os  # noqa: E402
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# Include routers
+from app.auth.routes import router as auth_router  # noqa: E402
+from app.web.dashboard import router as dashboard_router  # noqa: E402
+from app.web.users import router as users_router  # noqa: E402
+from app.web.contacts import router as contacts_router  # noqa: E402
+from app.web.namespaces import router as namespaces_router  # noqa: E402
+from app.web.notification_groups import router as notification_groups_router  # noqa: E402
+from app.web.notification_templates import router as notification_templates_router  # noqa: E402
+from app.web.tickets import router as tickets_router  # noqa: E402
+from app.api.webhook import router as webhook_router  # noqa: E402
+from app.api.ack import router as ack_router  # noqa: E402
+
+app.include_router(auth_router)
+app.include_router(dashboard_router)
+app.include_router(users_router)
+app.include_router(contacts_router)
+app.include_router(namespaces_router)
+app.include_router(notification_groups_router)
+app.include_router(notification_templates_router)
+app.include_router(tickets_router)
+app.include_router(webhook_router)
+app.include_router(ack_router)
+
+
+# Exception handler for 401/403 errors - redirect to login for web routes
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions, redirecting to login for auth errors on web routes."""
+    # API routes should return JSON
+    path = request.url.path
+    api_paths = ["/api", "/webhook", "/ack", "/health"]
+    is_api_request = any(path.startswith(p) for p in api_paths)
+    
+    # Check Accept header for API clients
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept:
+        is_api_request = True
+    
+    # For web routes with auth errors, redirect to login
+    if not is_api_request and exc.status_code in (401, 403):
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    
+    # Otherwise return JSON error
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+
+# Authentication middleware for web routes
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    """Redirect unauthenticated users to login for web routes."""
+    # Skip auth check for these paths
+    public_paths = ["/login", "/logout", "/health", "/api", "/static", "/webhook", "/ack"]
+    
+    path = request.url.path
+    if any(path.startswith(p) for p in public_paths):
+        return await call_next(request)
+    
+    # Check if user is authenticated
+    try:
+        user_id = request.session.get("user_id")
+        if not user_id:
+            return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    except (AssertionError, AttributeError):
+        # Session middleware not yet initialized, let exception handler deal with it
+        pass
+    
+    return await call_next(request)
+
+
+# Health check endpoint
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint."""
     return {"status": "healthy"}
 
 
-@app.get("/sources")
+# API routes for sources
+@app.get("/api/sources")
 async def list_sources() -> dict[str, list[str]]:
     """List registered alert sources."""
     return {"sources": list(sources.keys())}
-
-
-@app.get("/routes")
-async def list_routes() -> dict[str, list[dict]]:
-    """List configured routing rules."""
-    if not router:
-        return {"routes": []}
-
-    return {
-        "routes": [
-            {
-                "name": route.name,
-                "match": route.match.model_dump(),
-                "channels": [ch.model_dump() for ch in route.channels],
-            }
-            for route in router.routes
-        ]
-    }
-
-
-async def _process_webhook(source_name: str, payload: dict[str, Any]) -> JSONResponse:
-    """Process webhook from a specific source."""
-    logger.info(f"Received webhook from source: {source_name}")
-
-    if not router:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Router not configured. Check routes.yaml file.",
-        )
-
-    source = sources.get(source_name)
-    if not source:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown source: {source_name}",
-        )
-
-    # Parse payload to unified format
-    try:
-        alert_group = source.parse(payload)
-    except Exception as e:
-        logger.exception(f"Failed to parse {source_name} payload: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid payload: {e}",
-        )
-
-    logger.info(
-        f"Parsed {source_name} webhook: status={alert_group.status}, "
-        f"alerts={len(alert_group.alerts)}"
-    )
-
-    # Route the alert (internally wrapped into a generic Event)
-    results = await router.route_alert(alert_group)
-
-    # No matching route - discard
-    if not results:
-        logger.info("No matching route, alert discarded")
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "status": "discarded",
-                "message": "No matching route found",
-                "source": source_name,
-                "results": {},
-            },
-        )
-
-    # Check if at least one channel succeeded
-    any_success = any(results.values())
-
-    if not any_success:
-        return JSONResponse(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            content={
-                "status": "error",
-                "message": "Failed to send to all matched channels",
-                "source": source_name,
-                "results": results,
-            },
-        )
-
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-            "status": "ok",
-            "message": "Alert routed successfully",
-            "source": source_name,
-            "results": results,
-        },
-    )
-
-
-@app.post("/webhook/grafana")
-async def grafana_webhook(request: Request) -> JSONResponse:
-    """Receive Grafana alert webhook."""
-    payload = await request.json()
-    return await _process_webhook("grafana", payload)
-
-
-@app.post("/webhook/{source_name}")
-async def generic_webhook(source_name: str, request: Request) -> JSONResponse:
-    """Receive webhook from any registered source."""
-    payload = await request.json()
-    return await _process_webhook(source_name, payload)
 
 
 def run() -> None:
@@ -207,4 +192,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-

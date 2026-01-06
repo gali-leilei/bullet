@@ -1,0 +1,136 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}工单列表 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1>工单列表</h1>
+        <p class="text-gray-600 mt-1">共 {{ total }} 个工单</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-6">
+    <form method="GET" action="/tickets" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label for="project_id" class="form-label">项目</label>
+            <select id="project_id" name="project_id" class="form-select">
+                <option value="">全部项目</option>
+                {% for proj in all_projects %}
+                <option value="{{ proj.id }}" {{ 'selected' if project_id == proj.id|string else '' }}>{{ proj.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div>
+            <label for="status" class="form-label">状态</label>
+            <select id="status" name="status" class="form-select">
+                <option value="all">全部状态</option>
+                {% for s in statuses %}
+                <option value="{{ s }}" {{ 'selected' if status_filter == s else '' }}>
+                    {% if s == 'pending' %}待处理{% elif s == 'acknowledged' %}已确认{% elif s == 'escalated' %}已升级{% else %}已解决{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="flex-1">
+            <label for="search" class="form-label">搜索</label>
+            <input type="text" id="search" name="search" class="form-input" 
+                   value="{{ search or '' }}" placeholder="搜索标题、描述、来源...">
+        </div>
+        
+        <button type="submit" class="btn-primary">筛选</button>
+        <a href="/tickets" class="btn-secondary">重置</a>
+    </form>
+</div>
+
+<!-- Ticket List -->
+<div class="card">
+    {% if tickets %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>状态</th>
+                <th>标题</th>
+                <th>来源</th>
+                <th>项目</th>
+                <th>严重级别</th>
+                <th>创建时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ticket in tickets %}
+            <tr>
+                <td>
+                    {% if ticket.status.value == 'pending' %}
+                    <span class="badge badge-yellow">待处理</span>
+                    {% elif ticket.status.value == 'acknowledged' %}
+                    <span class="badge badge-blue">已确认</span>
+                    {% elif ticket.status.value == 'escalated' %}
+                    <span class="badge badge-red">已升级</span>
+                    {% else %}
+                    <span class="badge badge-green">已解决</span>
+                    {% endif %}
+                </td>
+                <td class="font-medium">
+                    <a href="/tickets/{{ ticket.id }}" class="text-blue-600 hover:underline">
+                        {{ ticket.title or '(无标题)' }}
+                    </a>
+                </td>
+                <td><span class="badge badge-gray">{{ ticket.source }}</span></td>
+                <td>
+                    {% set proj = projects_map.get(ticket.project_id) %}
+                    {{ proj.name if proj else '-' }}
+                </td>
+                <td>
+                    {% if ticket.severity %}
+                    {% if ticket.severity == 'critical' %}
+                    <span class="badge badge-red">{{ ticket.severity }}</span>
+                    {% elif ticket.severity == 'warning' %}
+                    <span class="badge badge-yellow">{{ ticket.severity }}</span>
+                    {% else %}
+                    <span class="badge badge-gray">{{ ticket.severity }}</span>
+                    {% endif %}
+                    {% else %}
+                    -
+                    {% endif %}
+                </td>
+                <td class="text-gray-500">{{ ticket.created_at.strftime('%m-%d %H:%M') }}</td>
+                <td>
+                    <a href="/tickets/{{ ticket.id }}" class="text-blue-600 hover:underline mr-2">查看</a>
+                    {% if ticket.status.value == 'pending' or ticket.status.value == 'escalated' %}
+                    <form method="POST" action="/tickets/{{ ticket.id }}/ack" class="inline">
+                        <button type="submit" class="text-green-600 hover:underline">确认</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="flex items-center justify-between px-4 py-3 border-t border-gray-200">
+        <div class="text-sm text-gray-500">
+            第 {{ page }} 页，共 {{ total_pages }} 页
+        </div>
+        <div class="flex gap-1">
+            {% if page > 1 %}
+            <a href="?page={{ page - 1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="btn-secondary text-sm">上一页</a>
+            {% endif %}
+            {% if page < total_pages %}
+            <a href="?page={{ page + 1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&search={{ search }}{% endif %}" class="btn-secondary text-sm">下一页</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% else %}
+    <p class="text-gray-500 text-sm">暂无工单</p>
+    {% endif %}
+</div>
+{% endblock %}
+

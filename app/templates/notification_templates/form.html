@@ -1,0 +1,91 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑模板' if template else '新建模板' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑模板' if template else '新建模板' }}</h1>
+    <p class="text-gray-500 mt-1">
+        {% if template and template.is_builtin %}
+        内置模板可以编辑但不能删除
+        {% else %}
+        自定义通知消息格式，使用 Jinja2 模板语法
+        {% endif %}
+    </p>
+</div>
+
+{% if error %}
+<div class="alert alert-error mb-4">{{ error }}</div>
+{% endif %}
+
+<form method="POST" action="{{ '/notification-templates/' + (template.id | string) + '/edit' if template else '/notification-templates/new' }}">
+    <div class="card mb-4">
+        <h3 class="mb-4">基本信息</h3>
+        
+        <div class="mb-4">
+            <label class="form-label" for="name">模板名称 *</label>
+            <input type="text" id="name" name="name" class="form-input" required
+                   value="{{ template.name if template else '' }}"
+                   {% if template and template.is_builtin %}readonly{% endif %}>
+            <p class="text-gray-400 text-xs mt-1">唯一标识，如：default, grafana, my-custom</p>
+        </div>
+        
+        <div class="mb-4">
+            <label class="form-label" for="description">描述</label>
+            <input type="text" id="description" name="description" class="form-input"
+                   value="{{ template.description if template else '' }}">
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <h3 class="mb-4">飞书卡片模板</h3>
+        <p class="text-gray-500 text-sm mb-3">飞书卡片 JSON 结构，支持 Jinja2 语法。推荐使用 schema 2.0 格式。</p>
+        
+        <div class="mb-4">
+            <label class="form-label" for="feishu_card">卡片 JSON</label>
+            <textarea id="feishu_card" name="feishu_card" class="form-input font-mono text-sm" rows="20"
+                      placeholder='{% raw %}{"schema": "2.0", "header": {...}, "body": {...}}{% endraw %}'>{{ template.feishu_card if template else '' }}</textarea>
+            <p class="text-gray-400 text-xs mt-1">
+                参考 <a href="https://open.feishu.cn/document/common-capabilities/message-card/message-cards-content" target="_blank" class="text-blue-600 hover:underline">飞书卡片文档</a>
+            </p>
+            <p class="text-gray-400 text-xs mt-1">
+                <strong>重要</strong>: 对于可能含特殊字符的变量，请使用 <code>|je</code> 过滤器转义，如: {% raw %}<code>{{ ticket.title|je }}</code>{% endraw %}
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <h3 class="mb-4">邮件模板</h3>
+        
+        <div class="mb-4">
+            <label class="form-label" for="email_subject">邮件主题</label>
+            <input type="text" id="email_subject" name="email_subject" class="form-input"
+                   value="{{ template.email_subject if template else '' }}"
+                   placeholder="{% raw %}[{{ source }}] {{ ticket.title }}{% endraw %}">
+        </div>
+        
+        <div class="mb-4">
+            <label class="form-label" for="email_body">邮件正文 (HTML)</label>
+            <textarea id="email_body" name="email_body" class="form-input font-mono text-sm" rows="10"
+                      placeholder="{% raw %}<h2>{{ ticket.title }}</h2><p>{{ ticket.description }}</p>{% endraw %}">{{ template.email_body if template else '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <h3 class="mb-4">短信模板</h3>
+        
+        <div class="mb-4">
+            <label class="form-label" for="sms_message">短信内容</label>
+            <textarea id="sms_message" name="sms_message" class="form-input" rows="3"
+                      placeholder="{% raw %}[{{ source }}] {{ ticket.title }}{% endraw %}">{{ template.sms_message if template else '' }}</textarea>
+            <p class="text-gray-400 text-xs mt-1">注意短信字数限制（160 字符）</p>
+        </div>
+    </div>
+
+    <div class="flex gap-2">
+        <button type="submit" class="btn-primary">{{ '保存' if template else '创建' }}</button>
+        <a href="/notification-templates" class="btn-secondary">取消</a>
+    </div>
+</form>
+{% endblock %}
+

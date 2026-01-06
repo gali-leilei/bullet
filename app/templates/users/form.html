@@ -1,0 +1,64 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}{{ '编辑用户' if target_user else '新建用户' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1>{{ '编辑用户' if target_user else '新建用户' }}</h1>
+    <p class="text-gray-600 mt-1">
+        <a href="/users" class="text-blue-600 hover:underline">← 返回用户列表</a>
+    </p>
+</div>
+
+<div class="card max-w-lg">
+    {% if error %}
+    <div class="alert alert-error mb-4">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" action="{{ '/users/' + (target_user.id|string) if target_user else '/users/new' }}">
+        <div class="form-group">
+            <label for="username" class="form-label">用户名 *</label>
+            <input type="text" id="username" name="username" class="form-input" 
+                   value="{{ target_user.username if target_user else '' }}" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="password" class="form-label">
+                密码 {{ '*' if not target_user else '（留空表示不修改）' }}
+            </label>
+            <input type="password" id="password" name="password" class="form-input"
+                   {{ 'required' if not target_user else '' }}>
+        </div>
+        
+        <div class="form-group">
+            <label for="email" class="form-label">邮箱</label>
+            <input type="email" id="email" name="email" class="form-input"
+                   value="{{ target_user.email if target_user else '' }}">
+        </div>
+        
+        <div class="form-group">
+            <label for="role" class="form-label">角色</label>
+            <select id="role" name="role" class="form-select">
+                <option value="user" {{ 'selected' if not target_user or target_user.role.value == 'user' else '' }}>普通用户</option>
+                <option value="admin" {{ 'selected' if target_user and target_user.role.value == 'admin' else '' }}>管理员</option>
+            </select>
+        </div>
+        
+        {% if target_user %}
+        <div class="form-group">
+            <label class="flex items-center">
+                <input type="checkbox" name="is_active" value="true" class="mr-2"
+                       {{ 'checked' if target_user.is_active else '' }}>
+                <span class="text-sm">启用账户</span>
+            </label>
+        </div>
+        {% endif %}
+        
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">保存</button>
+            <a href="/users" class="btn-secondary">取消</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

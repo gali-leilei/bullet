@@ -1,1 +1,1 @@
-uv run uvicorn app.main:app --port 3023 --reload
+uv run uvicorn app.main:app --port 5032 --reload

@@ -1,0 +1,240 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}工单详情 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-gray-600 text-sm">
+                <a href="/tickets" class="text-blue-600 hover:underline">工单</a> /
+            </p>
+            <h1>{{ ticket.title or '(无标题)' }}</h1>
+            <p class="text-gray-500 mt-1">
+                {% if ticket.status.value == 'pending' %}
+                <span class="badge badge-yellow">待处理</span>
+                {% elif ticket.status.value == 'acknowledged' %}
+                <span class="badge badge-blue">已确认</span>
+                {% elif ticket.status.value == 'escalated' %}
+                <span class="badge badge-red">已升级</span>
+                {% else %}
+                <span class="badge badge-green">已解决</span>
+                {% endif %}
+                <span class="ml-2">{{ ticket.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+            </p>
+        </div>
+        <div class="flex gap-2">
+            {% if ticket.status.value == 'pending' or ticket.status.value == 'escalated' %}
+            <form method="POST" action="/tickets/{{ ticket.id }}/ack">
+                <button type="submit" class="btn-success">确认工单</button>
+            </form>
+            {% endif %}
+            {% if ticket.status.value != 'resolved' %}
+            <form method="POST" action="/tickets/{{ ticket.id }}/resolve">
+                <button type="submit" class="btn-secondary">标记解决</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Main content -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Description -->
+        <div class="card">
+            <div class="card-header">
+                <h2>描述</h2>
+            </div>
+            {% if ticket.description %}
+            <p class="text-sm whitespace-pre-wrap">{{ ticket.description }}</p>
+            {% else %}
+            <p class="text-gray-500 text-sm">无描述</p>
+            {% endif %}
+        </div>
+        
+        <!-- Labels -->
+        {% if ticket.labels %}
+        <div class="card">
+            <div class="card-header">
+                <h2>标签</h2>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% for key, value in ticket.labels.items() %}
+                <span class="badge badge-gray">{{ key }}={{ value }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Payload -->
+        <div class="card">
+            <div class="card-header">
+                <h2>原始数据</h2>
+            </div>
+            <pre class="text-xs bg-gray-100 p-3 overflow-x-auto rounded-sm">{{ ticket.payload | tojson(indent=2) }}</pre>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Info -->
+        <div class="card">
+            <div class="card-header">
+                <h2>基本信息</h2>
+            </div>
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td class="font-medium w-24">来源</td>
+                        <td><span class="badge badge-gray">{{ ticket.source }}</span></td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">严重级别</td>
+                        <td>
+                            {% if ticket.severity %}
+                            {% if ticket.severity == 'critical' %}
+                            <span class="badge badge-red">{{ ticket.severity }}</span>
+                            {% elif ticket.severity == 'warning' %}
+                            <span class="badge badge-yellow">{{ ticket.severity }}</span>
+                            {% else %}
+                            <span class="badge badge-gray">{{ ticket.severity }}</span>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">升级级别</td>
+                        <td>{{ ticket.escalation_level }}</td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">通知次数</td>
+                        <td>{{ ticket.notification_count }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Project -->
+        {% if project %}
+        <div class="card">
+            <div class="card-header">
+                <h2>所属项目</h2>
+            </div>
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td class="font-medium w-24">命名空间</td>
+                        <td>
+                            {% if namespace %}
+                            <a href="/namespaces/{{ namespace.id }}" class="text-blue-600 hover:underline">{{ namespace.name }}</a>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="font-medium">项目</td>
+                        <td>
+                            <a href="/namespaces/{{ namespace.id }}/projects/{{ project.id }}" class="text-blue-600 hover:underline">{{ project.name }}</a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        
+        <!-- Timeline -->
+        <div class="card">
+            <div class="card-header">
+                <h2>事件时间线</h2>
+            </div>
+            <div class="space-y-3 text-sm max-h-96 overflow-y-auto">
+                {% for event in ticket.events %}
+                <div class="flex items-start gap-2 pb-3 {% if not loop.last %}border-b border-gray-100{% endif %}">
+                    {% if event.type.value == 'created' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-gray-400 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium">创建工单</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'notified' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full {% if event.success %}bg-blue-400{% else %}bg-red-400{% endif %} flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium">
+                            发送通知
+                            {% if event.group_name %}<span class="text-gray-500 font-normal">[{{ event.group_name }}]</span>{% endif %}
+                            {% if event.success %}<span class="text-green-600 text-xs ml-1">✓</span>{% else %}<span class="text-red-600 text-xs ml-1">✗ 失败</span>{% endif %}
+                        </p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} · 级别 {{ event.level }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate" title="{{ event.details }}">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'notified_silenced' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-orange-400 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium text-orange-600">🔇 通知被静默</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'repeated' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full {% if event.success %}bg-blue-300{% else %}bg-red-300{% endif %} flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium">
+                            重复通知
+                            {% if event.group_name %}<span class="text-gray-500 font-normal">[{{ event.group_name }}]</span>{% endif %}
+                            {% if event.success %}<span class="text-green-600 text-xs ml-1">✓</span>{% else %}<span class="text-red-600 text-xs ml-1">✗ 失败</span>{% endif %}
+                        </p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} · 级别 {{ event.level }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate" title="{{ event.details }}">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'escalated' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full {% if event.success %}bg-orange-500{% else %}bg-red-500{% endif %} flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium text-orange-600">
+                            升级到
+                            {% if event.group_name %}<span class="font-normal">[{{ event.group_name }}]</span>{% endif %}
+                            {% if event.success %}<span class="text-green-600 text-xs ml-1">✓</span>{% else %}<span class="text-red-600 text-xs ml-1">✗ 失败</span>{% endif %}
+                        </p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }} · 级别 {{ event.level }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate" title="{{ event.details }}">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'max_level_reached' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-gray-500 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium text-gray-600">到达最高级别</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% elif event.type.value == 'acknowledged' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-green-400 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium text-green-600">✓ 已确认 {% if event.details %}<span class="font-normal text-gray-600">{{ event.details }}</span>{% endif %}</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                    </div>
+                    {% elif event.type.value == 'resolved' %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-green-600 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium text-green-700">已解决</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% else %}
+                    <span class="w-2 h-2 mt-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+                    <div class="min-w-0">
+                        <p class="font-medium">{{ event.type.value }}</p>
+                        <p class="text-gray-500 text-xs">{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        {% if event.details %}<p class="text-gray-400 text-xs truncate">{{ event.details }}</p>{% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="text-gray-400 text-sm">暂无事件记录</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

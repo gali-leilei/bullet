@@ -1,0 +1,51 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}命名空间 - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1>命名空间</h1>
+        <p class="text-gray-600 mt-1">管理项目命名空间</p>
+    </div>
+    <a href="/namespaces/new" class="btn-primary">新建命名空间</a>
+</div>
+
+<div class="card">
+    {% if namespaces %}
+    <table class="table">
+        <thead>
+            <tr>
+                <th>名称</th>
+                <th>Slug</th>
+                <th>描述</th>
+                <th>项目数</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ns in namespaces %}
+            <tr>
+                <td class="font-medium">
+                    <a href="/namespaces/{{ ns.id }}" class="text-blue-600 hover:underline">{{ ns.name }}</a>
+                </td>
+                <td><code class="text-sm bg-gray-100 px-1">{{ ns.slug }}</code></td>
+                <td class="text-gray-500 max-w-xs truncate">{{ ns.description or '-' }}</td>
+                <td>{{ namespace_projects.get(ns.id|string, 0) }}</td>
+                <td>
+                    <a href="/namespaces/{{ ns.id }}" class="text-blue-600 hover:underline mr-2">查看</a>
+                    <a href="/namespaces/{{ ns.id }}/edit" class="text-blue-600 hover:underline mr-2">编辑</a>
+                    <form method="POST" action="/namespaces/{{ ns.id }}/delete" class="inline" onsubmit="return confirm('确定要删除此命名空间及其所有项目吗？')">
+                        <button type="submit" class="text-red-600 hover:underline">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="text-gray-500 text-sm">暂无命名空间，<a href="/namespaces/new">创建第一个命名空间</a></p>
+    {% endif %}
+</div>
+{% endblock %}
+
