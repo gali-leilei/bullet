@@ -1,7 +1,7 @@
 """Project model - notification target configuration."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, Field
@@ -19,19 +19,25 @@ class Project(Document):
 
     Each project binds to notification groups that define the escalation path.
     The order of notification_group_ids determines the escalation sequence.
-    
+
     Webhook URL: /webhook/{namespace_slug}/{project_id}?source=grafana
     """
 
-    namespace_id: Indexed(str)  # Reference to Namespace._id as string
+    namespace_id: Annotated[str, Indexed(str)]  # Reference to Namespace._id as string
     name: str
     description: str = ""
-    notification_group_ids: list[str] = Field(default_factory=list)  # Ordered list of NotificationGroup._id
-    notification_template_id: Optional[str] = None  # NotificationTemplate._id, None uses default
+    notification_group_ids: list[str] = Field(
+        default_factory=list
+    )  # Ordered list of NotificationGroup._id
+    notification_template_id: Optional[str] = (
+        None  # NotificationTemplate._id, None uses default
+    )
     escalation_config: EscalationConfig = Field(default_factory=EscalationConfig)
     is_active: bool = True
     notify_on_ack: bool = False  # Send notification when ticket is acknowledged
-    silenced_until: Optional[datetime] = None  # If set and in future, notifications are silenced
+    silenced_until: Optional[datetime] = (
+        None  # If set and in future, notifications are silenced
+    )
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
