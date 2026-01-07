@@ -14,7 +14,7 @@ from app.models.contact import Contact
 from app.models.namespace import Namespace
 from app.models.notification_group import NotificationGroup
 from app.models.notification_template import NotificationTemplate
-from app.models.project import EscalationConfig, Project, SILENCE_DURATION_OPTIONS
+from app.models.project import SILENCE_DURATION_OPTIONS, EscalationConfig, Project
 from app.models.ticket import Ticket, TicketStatus
 from app.services.notification import NotificationService
 from app.services.template import TemplateService
@@ -59,7 +59,11 @@ async def list_namespaces(request: Request, user: CurrentUser):
     return templates.TemplateResponse(
         request,
         "namespaces/list.html",
-        {"user": user, "namespaces": namespaces, "namespace_projects": namespace_projects},
+        {
+            "user": user,
+            "namespaces": namespaces,
+            "namespace_projects": namespace_projects,
+        },
     )
 
 
@@ -77,9 +81,12 @@ async def new_namespace_form(request: Request, user: CurrentUser):
 async def create_namespace(request: Request, user: CurrentUser):
     """Create a new namespace."""
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    slug = form_data.get("slug", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    slug_raw = form_data.get("slug", "")
+    slug = slug_raw.strip() if isinstance(slug_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
 
     # Generate slug if not provided
     if not slug:
@@ -112,7 +119,11 @@ async def view_namespace(request: Request, namespace_id: str, user: CurrentUser)
     if not namespace:
         return RedirectResponse(url="/namespaces", status_code=status.HTTP_302_FOUND)
 
-    projects = await Project.find(Project.namespace_id == str(namespace.id)).sort(Project.name).to_list()
+    projects = (
+        await Project.find(Project.namespace_id == str(namespace.id))
+        .sort(Project.name)
+        .to_list()
+    )
 
     # Get notification group count for each project (based on bound groups)
     project_group_counts = {}
@@ -156,9 +167,12 @@ async def update_namespace(request: Request, namespace_id: str, user: CurrentUse
         return RedirectResponse(url="/namespaces", status_code=status.HTTP_302_FOUND)
 
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    slug = form_data.get("slug", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    slug_raw = form_data.get("slug", "")
+    slug = slug_raw.strip() if isinstance(slug_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
 
     # Check if slug is taken by another namespace
     existing = await Namespace.find_one(Namespace.slug == slug)
@@ -166,7 +180,11 @@ async def update_namespace(request: Request, namespace_id: str, user: CurrentUse
         return templates.TemplateResponse(
             request,
             "namespaces/form.html",
-            {"user": user, "namespace": namespace, "error": f"Slug '{slug}' already exists"},
+            {
+                "user": user,
+                "namespace": namespace,
+                "error": f"Slug '{slug}' already exists",
+            },
             status_code=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -177,7 +195,9 @@ async def update_namespace(request: Request, namespace_id: str, user: CurrentUse
 
     await namespace.save()
 
-    return RedirectResponse(url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.post("/{namespace_id}/delete")
@@ -206,7 +226,9 @@ async def new_project_form(request: Request, namespace_id: str, user: CurrentUse
     all_groups = await NotificationGroup.find().sort(NotificationGroup.name).to_list()
 
     # Get all notification templates
-    all_templates = await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    all_templates = (
+        await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    )
 
     return templates.TemplateResponse(
         request,
@@ -230,12 +252,20 @@ async def create_project(request: Request, namespace_id: str, user: CurrentUser)
         return RedirectResponse(url="/namespaces", status_code=status.HTTP_302_FOUND)
 
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
     escalation_enabled = form_data.get("escalation_enabled") == "on"
-    escalation_timeout = int(form_data.get("escalation_timeout", 15))
+    timeout_raw = form_data.get("escalation_timeout", 15)
+    escalation_timeout = (
+        int(timeout_raw) if isinstance(timeout_raw, (str, int)) and timeout_raw else 15
+    )
     notification_group_ids = form_data.getlist("notification_group_ids")
-    notification_template_id = form_data.get("notification_template_id", "").strip()
+    template_id_raw = form_data.get("notification_template_id", "")
+    notification_template_id = (
+        template_id_raw.strip() if isinstance(template_id_raw, str) else ""
+    )
     notify_on_ack = form_data.get("notify_on_ack") == "on"
 
     project = Project(
@@ -243,7 +273,9 @@ async def create_project(request: Request, namespace_id: str, user: CurrentUser)
         name=name,
         description=description,
         notification_group_ids=list(notification_group_ids),
-        notification_template_id=notification_template_id if notification_template_id else None,
+        notification_template_id=notification_template_id
+        if notification_template_id
+        else None,
         notify_on_ack=notify_on_ack,
         escalation_config=EscalationConfig(
             enabled=escalation_enabled,
@@ -252,11 +284,15 @@ async def create_project(request: Request, namespace_id: str, user: CurrentUser)
     )
     await project.insert()
 
-    return RedirectResponse(url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.get("/{namespace_id}/projects/{project_id}", response_class=HTMLResponse)
-async def view_project(request: Request, namespace_id: str, project_id: str, user: CurrentUser):
+async def view_project(
+    request: Request, namespace_id: str, project_id: str, user: CurrentUser
+):
     """View project details and bound notification groups."""
     namespace = await Namespace.get(namespace_id)
     project = await Project.get(project_id)
@@ -295,7 +331,9 @@ async def view_project(request: Request, namespace_id: str, project_id: str, use
 
 
 @router.get("/{namespace_id}/projects/{project_id}/edit", response_class=HTMLResponse)
-async def edit_project_form(request: Request, namespace_id: str, project_id: str, user: CurrentUser):
+async def edit_project_form(
+    request: Request, namespace_id: str, project_id: str, user: CurrentUser
+):
     """Display edit project form."""
     namespace = await Namespace.get(namespace_id)
     project = await Project.get(project_id)
@@ -307,7 +345,9 @@ async def edit_project_form(request: Request, namespace_id: str, project_id: str
     all_groups = await NotificationGroup.find().sort(NotificationGroup.name).to_list()
 
     # Get all notification templates
-    all_templates = await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    all_templates = (
+        await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    )
 
     return templates.TemplateResponse(
         request,
@@ -324,7 +364,9 @@ async def edit_project_form(request: Request, namespace_id: str, project_id: str
 
 
 @router.post("/{namespace_id}/projects/{project_id}/edit", response_class=HTMLResponse)
-async def update_project(request: Request, namespace_id: str, project_id: str, user: CurrentUser):
+async def update_project(
+    request: Request, namespace_id: str, project_id: str, user: CurrentUser
+):
     """Update a project."""
     namespace = await Namespace.get(namespace_id)
     project = await Project.get(project_id)
@@ -333,19 +375,29 @@ async def update_project(request: Request, namespace_id: str, project_id: str, u
         return RedirectResponse(url="/namespaces", status_code=status.HTTP_302_FOUND)
 
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
     escalation_enabled = form_data.get("escalation_enabled") == "on"
-    escalation_timeout = int(form_data.get("escalation_timeout", 15))
+    timeout_raw = form_data.get("escalation_timeout", 15)
+    escalation_timeout = (
+        int(timeout_raw) if isinstance(timeout_raw, (str, int)) and timeout_raw else 15
+    )
     notification_group_ids = form_data.getlist("notification_group_ids")
-    notification_template_id = form_data.get("notification_template_id", "").strip()
+    template_id_raw = form_data.get("notification_template_id", "")
+    notification_template_id = (
+        template_id_raw.strip() if isinstance(template_id_raw, str) else ""
+    )
     is_active = form_data.get("is_active") == "on"
     notify_on_ack = form_data.get("notify_on_ack") == "on"
 
     project.name = name
     project.description = description
     project.notification_group_ids = list(notification_group_ids)
-    project.notification_template_id = notification_template_id if notification_template_id else None
+    project.notification_template_id = (
+        notification_template_id if notification_template_id else None
+    )
     project.is_active = is_active
     project.notify_on_ack = notify_on_ack
     project.escalation_config = EscalationConfig(
@@ -369,18 +421,29 @@ async def delete_project(namespace_id: str, project_id: str, user: CurrentUser):
     if project:
         await project.delete()
 
-    return RedirectResponse(url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.post("/{namespace_id}/projects/{project_id}/silence")
-async def silence_project(request: Request, namespace_id: str, project_id: str, user: CurrentUser):
+async def silence_project(
+    request: Request, namespace_id: str, project_id: str, user: CurrentUser
+):
     """Silence a project for a specified duration."""
     project = await Project.get(project_id)
     if not project:
-        return RedirectResponse(url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND
+        )
 
     form_data = await request.form()
-    duration_minutes = int(form_data.get("duration", 30))
+    duration_raw = form_data.get("duration", 30)
+    duration_minutes = (
+        int(duration_raw)
+        if isinstance(duration_raw, (str, int)) and duration_raw
+        else 30
+    )
 
     project.silenced_until = datetime.utcnow() + timedelta(minutes=duration_minutes)
     project.updated_at = datetime.utcnow()
@@ -397,7 +460,9 @@ async def unsilence_project(namespace_id: str, project_id: str, user: CurrentUse
     """Remove silence from a project."""
     project = await Project.get(project_id)
     if not project:
-        return RedirectResponse(url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url=f"/namespaces/{namespace_id}", status_code=status.HTTP_302_FOUND
+        )
 
     project.silenced_until = None
     project.updated_at = datetime.utcnow()
@@ -410,7 +475,9 @@ async def unsilence_project(namespace_id: str, project_id: str, user: CurrentUse
 
 
 @router.post("/{namespace_id}/projects/{project_id}/test", response_class=HTMLResponse)
-async def send_test_message(request: Request, namespace_id: str, project_id: str, user: CurrentUser):
+async def send_test_message(
+    request: Request, namespace_id: str, project_id: str, user: CurrentUser
+):
     """Send a test notification to the first notification group."""
     namespace = await Namespace.get(namespace_id)
     project = await Project.get(project_id)
@@ -419,15 +486,23 @@ async def send_test_message(request: Request, namespace_id: str, project_id: str
         return RedirectResponse(url="/namespaces", status_code=status.HTTP_302_FOUND)
 
     form_data = await request.form()
-    title = form_data.get("title", "").strip() or "测试告警"
-    description = form_data.get("description", "").strip() or "这是一条测试消息，用于验证通知配置是否正确。"
-    severity = form_data.get("severity", "warning")
+    title_raw = form_data.get("title", "")
+    title = (title_raw.strip() if isinstance(title_raw, str) else "") or "测试告警"
+    desc_raw = form_data.get("description", "")
+    description = (
+        desc_raw.strip() if isinstance(desc_raw, str) else ""
+    ) or "这是一条测试消息，用于验证通知配置是否正确。"
+    severity_raw = form_data.get("severity", "warning")
+    severity = severity_raw if isinstance(severity_raw, str) else "warning"
 
     # Check if project has notification groups
     if not project.notification_group_ids:
         return await _render_project_detail_with_test_result(
-            request, namespace, project, user,
-            test_result={"success": False, "message": "项目未配置通知组"}
+            request,
+            namespace,
+            project,
+            user,
+            test_result={"success": False, "message": "项目未配置通知组"},
         )
 
     # Get the first notification group
@@ -436,8 +511,11 @@ async def send_test_message(request: Request, namespace_id: str, project_id: str
 
     if not first_group:
         return await _render_project_detail_with_test_result(
-            request, namespace, project, user,
-            test_result={"success": False, "message": "第一级通知组不存在"}
+            request,
+            namespace,
+            project,
+            user,
+            test_result={"success": False, "message": "第一级通知组不存在"},
         )
 
     # Create a temporary ticket object (not saved to DB)

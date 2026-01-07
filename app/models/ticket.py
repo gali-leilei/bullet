@@ -3,7 +3,7 @@
 import secrets
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, Field
@@ -49,7 +49,7 @@ class Ticket(Document):
     - Timeline of events
     """
 
-    project_id: Indexed(str)  # Reference to Project._id as string
+    project_id: Annotated[str, Indexed(str)]  # Reference to Project._id as string
     source: str  # e.g., "grafana", "alertmanager", "custom"
     status: TicketStatus = TicketStatus.PENDING
     escalation_level: int = 1  # Current notification group priority level
@@ -104,7 +104,7 @@ class Ticket(Document):
 
     def can_escalate(self) -> bool:
         """Check if ticket can be escalated.
-        
+
         Escalation is only allowed for:
         - Tickets with pending or escalated status
         - Tickets with severity = 'critical'

@@ -58,10 +58,16 @@ async def new_group_form(request: Request, user: CurrentUser):
 async def create_group(request: Request, user: CurrentUser):
     """Create a new notification group."""
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
     repeat_interval_str = form_data.get("repeat_interval", "")
-    repeat_interval = int(repeat_interval_str) if repeat_interval_str else None
+    repeat_interval = (
+        int(repeat_interval_str)
+        if isinstance(repeat_interval_str, str) and repeat_interval_str
+        else None
+    )
     if repeat_interval == 0:
         repeat_interval = None
 
@@ -86,7 +92,10 @@ async def create_group(request: Request, user: CurrentUser):
 
     # Parse channel configs from form
     channel_configs = []
-    channel_count = int(form_data.get("channel_count", 0))
+    count_raw = form_data.get("channel_count", 0)
+    channel_count = (
+        int(count_raw) if isinstance(count_raw, (str, int)) and count_raw else 0
+    )
 
     for i in range(channel_count):
         channel_type = form_data.get(f"channel_{i}_type")
@@ -108,7 +117,9 @@ async def create_group(request: Request, user: CurrentUser):
     )
     await group.insert()
 
-    return RedirectResponse(url="/notification-groups", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url="/notification-groups", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.get("/{group_id}/edit", response_class=HTMLResponse)
@@ -117,7 +128,9 @@ async def edit_group_form(request: Request, group_id: str, user: CurrentUser):
     group = await NotificationGroup.get(group_id)
 
     if not group:
-        return RedirectResponse(url="/notification-groups", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url="/notification-groups", status_code=status.HTTP_302_FOUND
+        )
 
     contacts = await Contact.find().sort(Contact.name).to_list()
     channel_types = [t.value for t in ChannelType]
@@ -142,13 +155,21 @@ async def update_group(request: Request, group_id: str, user: CurrentUser):
     group = await NotificationGroup.get(group_id)
 
     if not group:
-        return RedirectResponse(url="/notification-groups", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url="/notification-groups", status_code=status.HTTP_302_FOUND
+        )
 
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
     repeat_interval_str = form_data.get("repeat_interval", "")
-    repeat_interval = int(repeat_interval_str) if repeat_interval_str else None
+    repeat_interval = (
+        int(repeat_interval_str)
+        if isinstance(repeat_interval_str, str) and repeat_interval_str
+        else None
+    )
     if repeat_interval == 0:
         repeat_interval = None
 
@@ -173,7 +194,10 @@ async def update_group(request: Request, group_id: str, user: CurrentUser):
 
     # Parse channel configs from form
     channel_configs = []
-    channel_count = int(form_data.get("channel_count", 0))
+    count_raw = form_data.get("channel_count", 0)
+    channel_count = (
+        int(count_raw) if isinstance(count_raw, (str, int)) and count_raw else 0
+    )
 
     for i in range(channel_count):
         channel_type = form_data.get(f"channel_{i}_type")
@@ -195,7 +219,9 @@ async def update_group(request: Request, group_id: str, user: CurrentUser):
 
     await group.save()
 
-    return RedirectResponse(url="/notification-groups", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url="/notification-groups", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.post("/{group_id}/delete")
@@ -205,4 +231,6 @@ async def delete_group(group_id: str, user: CurrentUser):
     if group:
         await group.delete()
 
-    return RedirectResponse(url="/notification-groups", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url="/notification-groups", status_code=status.HTTP_302_FOUND
+    )

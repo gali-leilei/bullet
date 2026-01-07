@@ -1,6 +1,7 @@
 """NotificationTemplate model - customizable notification message templates."""
 
 from datetime import datetime
+from typing import Annotated
 
 from beanie import Document, Indexed
 from pydantic import Field
@@ -22,7 +23,7 @@ class NotificationTemplate(Document):
     - notification_label: Human-readable label like "第3次通知" or "已升级到 L2"
     """
 
-    name: Indexed(str, unique=True)
+    name: Annotated[str, Indexed(str, unique=True)]
     description: str = ""
     is_builtin: bool = False  # Built-in templates cannot be deleted
 
@@ -510,4 +511,3 @@ BUILTIN_TEMPLATES = {
         "sms_message": "[Grafana]{% if notification_label %}[{{ notification_label }}]{% endif %} {{ '🔴' if parsed.status == 'firing' else '🟢' }} {{ parsed.alerts[0].annotations.summary if parsed.alerts and parsed.alerts[0].annotations and parsed.alerts[0].annotations.summary else ticket.title }}",
     },
 }
-

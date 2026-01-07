@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Optional
 
 from beanie import Document, Indexed
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ class ChannelType(str, Enum):
 
 class RepeatInterval(int, Enum):
     """Repeat notification interval in minutes. None means no repeat."""
+
     NONE = 0
     ONE_MINUTE = 1
     FIVE_MINUTES = 5
@@ -43,9 +44,11 @@ class NotificationGroup(Document):
     Projects define their escalation path by ordering notification groups.
     """
 
-    name: Indexed(str, unique=True)
+    name: Annotated[str, Indexed(str, unique=True)]
     description: str = ""
-    repeat_interval: Optional[int] = None  # Minutes between repeat notifications, None = no repeat
+    repeat_interval: Optional[int] = (
+        None  # Minutes between repeat notifications, None = no repeat
+    )
     channel_configs: list[ChannelConfig] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

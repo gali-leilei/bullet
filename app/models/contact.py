@@ -1,6 +1,7 @@
 """Contact model - address book for notifications."""
 
 from datetime import datetime
+from typing import Annotated
 
 from beanie import Document, Indexed
 from pydantic import Field
@@ -12,7 +13,7 @@ class Contact(Document):
     A contact can represent a person (with phone/email) or a bot (with webhook URL).
     """
 
-    name: Indexed(str)
+    name: Annotated[str, Indexed(str)]
     phones: list[str] = Field(default_factory=list)
     emails: list[str] = Field(default_factory=list)
     feishu_webhook_url: str = ""
@@ -32,4 +33,3 @@ class Contact(Document):
 
     def has_phone(self) -> bool:
         return len(self.phones) > 0
-

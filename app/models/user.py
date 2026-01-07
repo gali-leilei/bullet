@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+from typing import Annotated, Optional
 
 from beanie import Document, Indexed
 from pydantic import EmailStr, Field
@@ -16,7 +16,7 @@ class UserRole(str, Enum):
 class User(Document):
     """System user for authentication."""
 
-    username: Indexed(str, unique=True)
+    username: Annotated[str, Indexed(str, unique=True)]
     password_hash: str
     email: Optional[EmailStr] = None
     role: UserRole = UserRole.USER
@@ -31,4 +31,3 @@ class User(Document):
 
     def is_admin(self) -> bool:
         return self.role == UserRole.ADMIN
-
