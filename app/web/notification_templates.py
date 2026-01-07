@@ -15,7 +15,9 @@ router = APIRouter(prefix="/notification-templates", tags=["notification_templat
 @router.get("/", response_class=HTMLResponse)
 async def list_templates(request: Request, user: CurrentUser):
     """List all notification templates."""
-    template_list = await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    template_list = (
+        await NotificationTemplate.find().sort(NotificationTemplate.name).to_list()
+    )
 
     return templates.TemplateResponse(
         request,
@@ -42,12 +44,18 @@ async def new_template_form(request: Request, user: CurrentUser):
 async def create_template(request: Request, user: CurrentUser):
     """Create a new notification template."""
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
-    feishu_card = form_data.get("feishu_card", "").strip()
-    email_subject = form_data.get("email_subject", "").strip()
-    email_body = form_data.get("email_body", "").strip()
-    sms_message = form_data.get("sms_message", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
+    feishu_raw = form_data.get("feishu_card", "")
+    feishu_card = feishu_raw.strip() if isinstance(feishu_raw, str) else ""
+    subject_raw = form_data.get("email_subject", "")
+    email_subject = subject_raw.strip() if isinstance(subject_raw, str) else ""
+    body_raw = form_data.get("email_body", "")
+    email_body = body_raw.strip() if isinstance(body_raw, str) else ""
+    sms_raw = form_data.get("sms_message", "")
+    sms_message = sms_raw.strip() if isinstance(sms_raw, str) else ""
 
     # Check if name already exists
     existing = await NotificationTemplate.find_one(NotificationTemplate.name == name)
@@ -74,7 +82,9 @@ async def create_template(request: Request, user: CurrentUser):
     )
     await template.insert()
 
-    return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url="/notification-templates", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.get("/{template_id}/edit", response_class=HTMLResponse)
@@ -83,7 +93,9 @@ async def edit_template_form(request: Request, template_id: str, user: CurrentUs
     template = await NotificationTemplate.get(template_id)
 
     if not template:
-        return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url="/notification-templates", status_code=status.HTTP_302_FOUND
+        )
 
     return templates.TemplateResponse(
         request,
@@ -102,15 +114,23 @@ async def update_template(request: Request, template_id: str, user: CurrentUser)
     template = await NotificationTemplate.get(template_id)
 
     if not template:
-        return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(
+            url="/notification-templates", status_code=status.HTTP_302_FOUND
+        )
 
     form_data = await request.form()
-    name = form_data.get("name", "").strip()
-    description = form_data.get("description", "").strip()
-    feishu_card = form_data.get("feishu_card", "").strip()
-    email_subject = form_data.get("email_subject", "").strip()
-    email_body = form_data.get("email_body", "").strip()
-    sms_message = form_data.get("sms_message", "").strip()
+    name_raw = form_data.get("name", "")
+    name = name_raw.strip() if isinstance(name_raw, str) else ""
+    desc_raw = form_data.get("description", "")
+    description = desc_raw.strip() if isinstance(desc_raw, str) else ""
+    feishu_raw = form_data.get("feishu_card", "")
+    feishu_card = feishu_raw.strip() if isinstance(feishu_raw, str) else ""
+    subject_raw = form_data.get("email_subject", "")
+    email_subject = subject_raw.strip() if isinstance(subject_raw, str) else ""
+    body_raw = form_data.get("email_body", "")
+    email_body = body_raw.strip() if isinstance(body_raw, str) else ""
+    sms_raw = form_data.get("sms_message", "")
+    sms_message = sms_raw.strip() if isinstance(sms_raw, str) else ""
 
     # Check if name is taken by another template
     existing = await NotificationTemplate.find_one(NotificationTemplate.name == name)
@@ -136,7 +156,9 @@ async def update_template(request: Request, template_id: str, user: CurrentUser)
 
     await template.save()
 
-    return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
+    return RedirectResponse(
+        url="/notification-templates", status_code=status.HTTP_302_FOUND
+    )
 
 
 @router.post("/{template_id}/delete")
@@ -146,8 +168,11 @@ async def delete_template(template_id: str, user: CurrentUser):
     if template:
         # Cannot delete built-in templates
         if template.is_builtin:
-            return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
+            return RedirectResponse(
+                url="/notification-templates", status_code=status.HTTP_302_FOUND
+            )
         await template.delete()
 
-    return RedirectResponse(url="/notification-templates", status_code=status.HTTP_302_FOUND)
-
+    return RedirectResponse(
+        url="/notification-templates", status_code=status.HTTP_302_FOUND
+    )
