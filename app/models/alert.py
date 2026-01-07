@@ -5,7 +5,9 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-AlertStatus = Literal["firing", "resolved"]
+# AlertStatus = Literal["firing", "resolved"]
+# HACK: this is for aliyun where normal messages should be ignored
+AlertStatus = Literal["ignored", "firing", "resolved"]
 
 
 class Alert(BaseModel):
@@ -29,6 +31,11 @@ class Alert(BaseModel):
     def is_firing(self) -> bool:
         return self.status == "firing"
 
+    # need this because status is no longer binary
+    @property
+    def is_resolved(self) -> bool:
+        return self.status == "resolved"
+
 
 class AlertGroup(BaseModel):
     """Group of alerts from a single webhook payload."""
@@ -47,9 +54,8 @@ class AlertGroup(BaseModel):
 
     @property
     def resolved_alerts(self) -> list[Alert]:
-        return [a for a in self.alerts if not a.is_firing]
+        return [a for a in self.alerts if a.is_resolved]
 
     @property
     def is_firing(self) -> bool:
         return self.status == "firing"
-

@@ -63,12 +63,12 @@ class TestAliyunSourceParse:
         result = aliyun_source.parse(payload)
 
         assert result.source == "aliyun_pai"
-        assert result.status == "firing"
+        assert result.status == "ignored"
         assert len(result.alerts) == 1
 
         alert = result.alerts[0]
         assert alert.name == "debug-webhook_clone"
-        assert alert.status == "firing"
+        assert alert.status == "ignored"
         assert alert.severity == "info"
         assert alert.fingerprint == "dlc1gbd4p5lft9tx"
         assert "开始运行" in alert.summary
@@ -82,11 +82,11 @@ class TestAliyunSourceParse:
         payload = payloads["Succeeded"]
         result = aliyun_source.parse(payload)
 
-        assert result.status == "resolved"
+        assert result.status == "ignored"
         alert = result.alerts[0]
-        assert alert.status == "resolved"
+        assert alert.status == "ignored"
         assert alert.severity == "info"
-        assert alert.ends_at is not None
+        assert alert.ends_at is None
 
     def test_parse_queuing_task(
         self, aliyun_source: AliyunSource, payloads: dict[str, dict]
@@ -95,7 +95,7 @@ class TestAliyunSourceParse:
         payload = payloads["Queuing"]
         result = aliyun_source.parse(payload)
 
-        assert result.status == "firing"
+        assert result.status == "ignored"
         alert = result.alerts[0]
         assert alert.severity == "info"
 
@@ -106,7 +106,7 @@ class TestAliyunSourceParse:
         payload = payloads["EnvPreparing"]
         result = aliyun_source.parse(payload)
 
-        assert result.status == "firing"
+        assert result.status == "ignored"
         alert = result.alerts[0]
         assert alert.severity == "info"
 
@@ -173,7 +173,7 @@ class TestAliyunSourceParse:
         result = aliyun_source.parse({})
 
         assert result.source == "aliyun_pai"
-        assert result.status == "firing"
+        assert result.status == "ignored"
         assert len(result.alerts) == 1
         alert = result.alerts[0]
         assert alert.name == "Unknown"

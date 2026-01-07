@@ -40,9 +40,7 @@ class AliyunSource(BaseSource):
         url = fields.get("_url", "")
 
         # Determine alert status based on task status
-        alert_status: AlertStatus = (
-            "resolved" if task_status in self.RESOLVED_STATUSES else "firing"
-        )
+        alert_status = self._map_status(task_status)
 
         # Map task status to severity
         severity = self._map_severity(task_status)
@@ -145,3 +143,14 @@ class AliyunSource(BaseSource):
             "EnvPreparing": "info",
         }
         return severity_map.get(task_status, "warning")
+
+    def _map_status(self, task_status: str) -> AlertStatus:
+        """Map Aliyun task status to alert status."""
+        status_map: dict[str, AlertStatus] = {
+            "Succeeded": "ignored",
+            "Running": "ignored",
+            "Queuing": "ignored",
+            "EnvPreparing": "ignored",
+            "": "ignored",
+        }
+        return status_map.get(task_status, "firing")

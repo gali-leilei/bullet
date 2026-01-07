@@ -11,10 +11,12 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.webhook import get_sources
 from app.config import get_settings
 from app.database import close_db, init_db
-from app.sources.base import BaseSource
-from app.sources.grafana import GrafanaSource
+
+# from app.sources.base import BaseSource
+# from app.sources.grafana import GrafanaSource
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Source parsers registry
-sources: dict[str, BaseSource] = {}
+# sources: dict[str, BaseSource] = {}
 
 
 @asynccontextmanager
@@ -40,21 +42,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Create initial admin user if needed
     from app.auth.init_admin import ensure_admin_exists
+
     await ensure_admin_exists()
 
     # Ensure built-in notification templates exist
     from app.services.template import TemplateService
+
     await TemplateService.ensure_builtin_templates()
 
     # Register source parsers
-    from app.sources.aliyun_pai import AliyunSource
+    # from app.sources.aliyun_pai import AliyunSource
 
-    sources["grafana"] = GrafanaSource()
-    sources["aliyun"] = AliyunSource()
+    # sources["grafana"] = GrafanaSource()
+    # sources["aliyun"] = AliyunSource()
+    sources = get_sources()
     logger.info(f"Registered {len(sources)} source parser(s): {list(sources.keys())}")
 
     # Start escalation scheduler
     from app.services.escalation import start_scheduler, stop_scheduler
+
     start_scheduler()
 
     logger.info("Bullet started")
@@ -91,21 +97,26 @@ app.add_middleware(
 
 # Mount static files
 import os  # noqa: E402
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include routers
-from app.auth.routes import router as auth_router  # noqa: E402
-from app.web.dashboard import router as dashboard_router  # noqa: E402
-from app.web.users import router as users_router  # noqa: E402
-from app.web.contacts import router as contacts_router  # noqa: E402
-from app.web.namespaces import router as namespaces_router  # noqa: E402
-from app.web.notification_groups import router as notification_groups_router  # noqa: E402
-from app.web.notification_templates import router as notification_templates_router  # noqa: E402
-from app.web.tickets import router as tickets_router  # noqa: E402
-from app.api.webhook import router as webhook_router  # noqa: E402
 from app.api.ack import router as ack_router  # noqa: E402
+from app.api.webhook import router as webhook_router  # noqa: E402
+from app.auth.routes import router as auth_router  # noqa: E402
+from app.web.contacts import router as contacts_router  # noqa: E402
+from app.web.dashboard import router as dashboard_router  # noqa: E402
+from app.web.namespaces import router as namespaces_router  # noqa: E402
+from app.web.notification_groups import (
+    router as notification_groups_router,  # noqa: E402
+)
+from app.web.notification_templates import (
+    router as notification_templates_router,  # noqa: E402
+)
+from app.web.tickets import router as tickets_router  # noqa: E402
+from app.web.users import router as users_router  # noqa: E402
 
 app.include_router(auth_router)
 app.include_router(dashboard_router)
@@ -127,16 +138,16 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     path = request.url.path
     api_paths = ["/api", "/webhook", "/ack", "/health"]
     is_api_request = any(path.startswith(p) for p in api_paths)
-    
+
     # Check Accept header for API clients
     accept = request.headers.get("accept", "")
     if "application/json" in accept:
         is_api_request = True
-    
+
     # For web routes with auth errors, redirect to login
     if not is_api_request and exc.status_code in (401, 403):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    
+
     # Otherwise return JSON error
     return JSONResponse(
         status_code=exc.status_code,
@@ -149,12 +160,20 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 async def auth_middleware(request: Request, call_next):
     """Redirect unauthenticated users to login for web routes."""
     # Skip auth check for these paths
-    public_paths = ["/login", "/logout", "/health", "/api", "/static", "/webhook", "/ack"]
-    
+    public_paths = [
+        "/login",
+        "/logout",
+        "/health",
+        "/api",
+        "/static",
+        "/webhook",
+        "/ack",
+    ]
+
     path = request.url.path
     if any(path.startswith(p) for p in public_paths):
         return await call_next(request)
-    
+
     # Check if user is authenticated
     try:
         user_id = request.session.get("user_id")
@@ -163,7 +182,7 @@ async def auth_middleware(request: Request, call_next):
     except (AssertionError, AttributeError):
         # Session middleware not yet initialized, let exception handler deal with it
         pass
-    
+
     return await call_next(request)
 
 

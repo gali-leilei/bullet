@@ -12,6 +12,7 @@ from app.models.notification_group import NotificationGroup
 from app.models.project import Project
 from app.models.ticket import EventType, Ticket, TicketStatus
 from app.services.notification import NotificationService
+from app.sources.aliyun_pai import AliyunSource
 from app.sources.base import BaseSource
 from app.sources.grafana import GrafanaSource
 
@@ -27,6 +28,7 @@ def get_sources() -> dict[str, BaseSource]:
     """Get or initialize source parsers."""
     if not _sources:
         _sources["grafana"] = GrafanaSource()
+        _sources["aliyun"] = AliyunSource()
         # Add more sources here as needed
     return _sources
 
@@ -75,11 +77,16 @@ def _extract_ticket_info(source_name: str, payload: dict[str, Any]) -> dict[str,
 
     # Fallback: try to extract common fields
     return {
-        "title": payload.get("title", payload.get("alertname", payload.get("name", ""))),
-        "description": payload.get("message", payload.get("description", "")),
-        "severity": payload.get("severity", payload.get("level", "")),
-        "labels": payload.get("labels", {}),
-        "status": payload.get("status", "firing"),
+        "title": payload.get("title", None)
+        or payload.get("alertname", None)
+        or payload.get("name", None)
+        or "",
+        "description": payload.get("message", None)
+        or payload.get("description", None)
+        or "",
+        "severity": payload.get("severity", None) or payload.get("level", None) or "",
+        "labels": payload.get("labels", None) or {},
+        "status": payload.get("status", None) or "firing",
         "parsed_data": None,
     }
 
@@ -89,7 +96,9 @@ async def receive_webhook(
     namespace_slug: str,
     project_id: str,
     request: Request,
-    source: str = Query(default="custom", description="Source type (grafana, alertmanager, custom)"),
+    source: str = Query(
+        default="custom", description="Source type (grafana, alertmanager, custom)"
+    ),
 ) -> JSONResponse:
     """Receive webhook and create ticket.
 
@@ -150,7 +159,9 @@ async def receive_webhook(
             await t.save()
 
         if pending_tickets:
-            logger.info(f"Resolved {len(pending_tickets)} pending tickets for project {project_id}")
+            logger.info(
+                f"Resolved {len(pending_tickets)} pending tickets for project {project_id}"
+            )
 
         return JSONResponse(
             status_code=status.HTTP_200_OK,
@@ -158,6 +169,16 @@ async def receive_webhook(
                 "status": "resolved",
                 "message": f"Resolved {len(pending_tickets)} ticket(s)",
                 "source": source,
+            },
+        )
+
+    if info.get("status") == TicketStatus.IGNORED:
+        # HACK: this is for aliyun where normal messages should not create ticket
+        return JSONResponse(
+            status_code=status.HTTP_200_OK,
+            content={
+                "status": "ignored",
+                "message": "Message is ignored",
             },
         )
 
@@ -179,7 +200,9 @@ async def receive_webhook(
 
     # Check if project is silenced
     if project.is_silenced():
-        ticket.add_event(EventType.NOTIFIED_SILENCED, level=1, details="项目已静默，跳过通知")
+        ticket.add_event(
+            EventType.NOTIFIED_SILENCED, level=1, details="项目已静默，跳过通知"
+        )
         await ticket.insert()
 
         logger.info(f"Created ticket {ticket.id} for project {project_id} (silenced)")

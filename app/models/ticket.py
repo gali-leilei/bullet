@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 
 class TicketStatus(str, Enum):
+    IGNORED = "ignored"  # HACK: this is for aliyun where normal messages should not create ticket
     PENDING = "pending"  # Awaiting acknowledgement
     ACKNOWLEDGED = "acknowledged"  # Someone has acknowledged
     ESCALATED = "escalated"  # Escalated to next notification group
@@ -101,6 +102,9 @@ class Ticket(Document):
 
     def is_resolved(self) -> bool:
         return self.status == TicketStatus.RESOLVED
+
+    def is_ignored(self) -> bool:
+        return self.status == TicketStatus.IGNORED
 
     def can_escalate(self) -> bool:
         """Check if ticket can be escalated.
