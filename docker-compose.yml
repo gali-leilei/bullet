@@ -1,0 +1,35 @@
+services:
+  bullet:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "0.0.0.0:5032:5032"
+    depends_on:
+      - mongo
+    # use `env.example` as reference
+    env_file: .env
+    environment:
+      # Override MongoDB URI to use docker service name
+      MONGODB_URI: "mongodb://mongo:27017"
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "0.0.0.0:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    # comment out below for mongodb logs
+    command: mongod --quiet --logpath /dev/null
+    # healthcheck:
+    #   test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+    #   interval: 10s
+    #   timeout: 10s
+    #   retries: 5
+    #   start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+
