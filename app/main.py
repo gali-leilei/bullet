@@ -47,7 +47,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await TemplateService.ensure_builtin_templates()
 
     # Register source parsers
+    from app.sources.aliyun_pai import AliyunSource
+
     sources["grafana"] = GrafanaSource()
+    sources["aliyun"] = AliyunSource()
     logger.info(f"Registered {len(sources)} source parser(s): {list(sources.keys())}")
 
     # Start escalation scheduler
