@@ -151,5 +151,6 @@ class AliyunSource(BaseSource):
             "Running": "ignored",
             "Queuing": "ignored",
             "EnvPreparing": "ignored",
+            "": "ignored",
         }
         return status_map.get(task_status, "firing")
