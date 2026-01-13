@@ -12,6 +12,7 @@ class ChannelType(str, Enum):
     FEISHU = "feishu"
     EMAIL = "email"
     SMS = "sms"
+    SLACK = "slack"
 
 
 class RepeatInterval(int, Enum):

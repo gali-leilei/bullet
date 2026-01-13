@@ -17,6 +17,7 @@ class Contact(Document):
     phones: list[str] = Field(default_factory=list)
     emails: list[str] = Field(default_factory=list)
     feishu_webhook_url: str = ""
+    slack_channel_id: str = ""
     note: str = ""
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -27,6 +28,9 @@ class Contact(Document):
 
     def has_feishu(self) -> bool:
         return bool(self.feishu_webhook_url)
+
+    def has_slack(self) -> bool:
+        return bool(self.slack_channel_id)
 
     def has_email(self) -> bool:
         return len(self.emails) > 0
