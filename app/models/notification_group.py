@@ -58,7 +58,7 @@ class NotificationGroup(Document):
         name = "notification_groups"
         use_state_management = True
 
-    class Config:
+    class Config: # type: ignore
         json_schema_extra = {
             "example": {
                 "name": "On-call Team",

@@ -183,12 +183,12 @@ class NotificationService:
 
         elif config.type == ChannelType.SLACK:
             for contact in contacts:
-                if contact.slack_channel_id:
-                    channel = SlackChannel(channel_id=contact.slack_channel_id)
+                if contact.slack_webhook_url:
+                    channel = SlackChannel(webhook_url=contact.slack_webhook_url)
                     success = await channel.send_safe(event)
                     results[f"slack:{contact.name}"] = success
                 else:
-                    logger.warning(f"Contact {contact.name} has no slack_channel_id")
+                    logger.warning(f"Contact {contact.name} has no slack_webhook_url")
 
         return results
 
