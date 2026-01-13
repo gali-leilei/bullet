@@ -50,9 +50,6 @@ class Settings(BaseSettings):
     twilio_auth_token: str = Field(default="")
     twilio_from_number: str = Field(default="")
 
-    # Slack channel
-    slack_bot_token: str = Field(default="")
-
     # Escalation settings
     escalation_check_interval: int = Field(default=5)  # seconds
 

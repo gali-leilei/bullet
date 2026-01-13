@@ -197,6 +197,7 @@ async def health_check() -> dict[str, str]:
 @app.get("/api/sources")
 async def list_sources() -> dict[str, list[str]]:
     """List registered alert sources."""
+    sources = get_sources()
     return {"sources": list(sources.keys())}
 
 
