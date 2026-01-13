@@ -32,7 +32,7 @@ async def init_db() -> None:
     from app.models.user import User
 
     await init_beanie(
-        database=_client[settings.mongodb_database],
+        database=_client[settings.mongodb_database], # type: ignore
         document_models=[
             User,
             Contact,

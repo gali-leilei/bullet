@@ -24,7 +24,7 @@ async def dashboard(request: Request, user: CurrentUser):
     }
 
     # Get recent tickets
-    recent_tickets = await Ticket.find().sort(-Ticket.created_at).limit(5).to_list()
+    recent_tickets = await Ticket.find().sort(-Ticket.created_at).limit(5).to_list() # type: ignore
 
     return templates.TemplateResponse(
         request,
