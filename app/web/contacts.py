@@ -38,6 +38,7 @@ def mask_contact_for_display(contact: Contact, user: User) -> dict:
         "id": contact.id,
         "name": contact.name,
         "feishu_webhook_url": contact.feishu_webhook_url,
+        "slack_webhook_url": contact.slack_webhook_url,
         "note": contact.note,
         "created_at": contact.created_at,
         "updated_at": contact.updated_at,
@@ -78,12 +79,11 @@ async def new_contact_form(request: Request, admin: AdminUser):
 
 @router.post("/new", response_class=HTMLResponse)
 async def create_contact(
-    request: Request,
-    admin: AdminUser,
     name: str = Form(...),
     phones: str = Form(""),
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
+    slack_webhook_url: str = Form(""),
     note: str = Form(""),
 ):
     """Create a new contact. Admin only."""
@@ -96,6 +96,7 @@ async def create_contact(
         phones=phone_list,
         emails=email_list,
         feishu_webhook_url=feishu_webhook_url,
+        slack_webhook_url=slack_webhook_url,
         note=note,
     )
     await contact.insert()
@@ -119,13 +120,12 @@ async def edit_contact_form(request: Request, contact_id: str, admin: AdminUser)
 
 @router.post("/{contact_id}", response_class=HTMLResponse)
 async def update_contact(
-    request: Request,
     contact_id: str,
-    admin: AdminUser,
     name: str = Form(...),
     phones: str = Form(""),
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
+    slack_webhook_url: str = Form(""),
     note: str = Form(""),
 ):
     """Update a contact. Admin only."""
@@ -141,6 +141,7 @@ async def update_contact(
     contact.phones = phone_list
     contact.emails = email_list
     contact.feishu_webhook_url = feishu_webhook_url
+    contact.slack_webhook_url = slack_webhook_url
     contact.note = note
     contact.updated_at = datetime.utcnow()
 

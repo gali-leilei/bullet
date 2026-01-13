@@ -24,6 +24,7 @@
                 <th>手机号</th>
                 <th>邮箱</th>
                 <th>飞书机器人</th>
+                <th>Slack</th>
                 <th>备注</th>
                 <th>操作</th>
             </tr>
@@ -48,6 +49,13 @@
                 </td>
                 <td>
                     {% if contact.feishu_webhook_url %}
+                    <span class="badge badge-green">已配置</span>
+                    {% else %}
+                    <span class="text-gray-400">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if contact.slack_webhook_url %}
                     <span class="badge badge-green">已配置</span>
                     {% else %}
                     <span class="text-gray-400">-</span>

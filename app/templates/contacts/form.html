@@ -48,6 +48,14 @@
         </div>
         
         <div class="form-group">
+            <label for="slack_webhook_url" class="form-label">Slack Webhook URL</label>
+            <input type="url" id="slack_webhook_url" name="slack_webhook_url" class="form-input"
+                   value="{{ contact.slack_webhook_url if contact else '' }}"
+                   placeholder="https://hooks.slack.com/services/xxx/xxx/xxx">
+            <p class="text-xs text-gray-500 mt-1">用于 Slack 机器人通知</p>
+        </div>
+        
+        <div class="form-group">
             <label for="note" class="form-label">备注</label>
             <textarea id="note" name="note" class="form-input" rows="2"
                       placeholder="可选备注信息">{{ contact.note if contact else '' }}</textarea>
