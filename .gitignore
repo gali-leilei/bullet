@@ -10,3 +10,7 @@ wheels/
 .venv
 
 .env
+
+# for local testing
+mock.json
+test.sh
