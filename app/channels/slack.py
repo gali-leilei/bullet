@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 TEMPLATE_BLOCKS_KEY = "template_slack_blocks"
 
 
-class SlackChannel(BaseChannel):
+class SlackWebhookChannel(BaseChannel):
     """Slack notification channel using Incoming Webhooks."""
 
     def __init__(self, webhook_url: str):
@@ -22,7 +22,7 @@ class SlackChannel(BaseChannel):
 
     @property
     def name(self) -> str:
-        return "slack"
+        return "slack-webhook"
 
     @property
     def enabled(self) -> bool:

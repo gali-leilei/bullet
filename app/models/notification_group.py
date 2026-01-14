@@ -12,7 +12,8 @@ class ChannelType(str, Enum):
     FEISHU = "feishu"
     EMAIL = "email"
     SMS = "sms"
-    SLACK = "slack"
+    SLACK_WEBHOOK = "slack-webhook"
+    SLACK_BOT = "slack-bot"
 
 
 class RepeatInterval(int, Enum):
