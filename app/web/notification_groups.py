@@ -105,7 +105,7 @@ async def create_group(request: Request, user: CurrentUser):
             channel_configs.append(
                 ChannelConfig(
                     type=ChannelType(channel_type),
-                    contact_ids=list(contact_ids),
+                    contact_ids=list(contact_ids), #type: ignore[reportArgumentType]
                 )
             )
 
@@ -207,7 +207,7 @@ async def update_group(request: Request, group_id: str, user: CurrentUser):
             channel_configs.append(
                 ChannelConfig(
                     type=ChannelType(channel_type),
-                    contact_ids=list(contact_ids),
+                    contact_ids=list(contact_ids), #type: ignore[reportArgumentType]
                 )
             )
 

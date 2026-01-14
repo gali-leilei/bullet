@@ -55,6 +55,7 @@ class Project(Document):
         """Get human-readable remaining silence time."""
         if not self.is_silenced():
             return None
+        assert self.silenced_until is not None, "silenced_until is None"
         remaining = self.silenced_until - datetime.utcnow()
         total_seconds = int(remaining.total_seconds())
         if total_seconds < 60:

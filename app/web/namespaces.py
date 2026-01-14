@@ -272,7 +272,7 @@ async def create_project(request: Request, namespace_id: str, user: CurrentUser)
         namespace_id=str(namespace.id),
         name=name,
         description=description,
-        notification_group_ids=list(notification_group_ids),
+        notification_group_ids=list(notification_group_ids), #type: ignore[reportArgumentType]
         notification_template_id=notification_template_id
         if notification_template_id
         else None,
@@ -394,7 +394,7 @@ async def update_project(
 
     project.name = name
     project.description = description
-    project.notification_group_ids = list(notification_group_ids)
+    project.notification_group_ids = list(notification_group_ids) #type: ignore[reportArgumentType]
     project.notification_template_id = (
         notification_template_id if notification_template_id else None
     )

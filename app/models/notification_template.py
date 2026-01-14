@@ -40,7 +40,7 @@ class NotificationTemplate(Document):
         name = "notification_templates"
         use_state_management = True
 
-    class Config:
+    class Config: # type: ignore
         json_schema_extra = {
             "example": {
                 "name": "default",

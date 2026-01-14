@@ -16,7 +16,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 @router.get("/", response_class=HTMLResponse)
 async def list_users(request: Request, admin: AdminUser):
     """List all users."""
-    users = await User.find().sort(User.created_at).to_list()
+    users = await User.find().sort(User.created_at).to_list() # type: ignore
     return templates.TemplateResponse(
         request,
         "users/list.html",

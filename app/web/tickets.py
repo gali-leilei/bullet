@@ -61,7 +61,7 @@ async def list_tickets(
         tickets_query = Ticket.find(query)
 
     total = await tickets_query.count()
-    tickets = await tickets_query.sort(-Ticket.created_at).skip(skip).limit(per_page).to_list()
+    tickets = await tickets_query.sort(-Ticket.created_at).skip(skip).limit(per_page).to_list() # type: ignore
 
     # Get project info for each ticket
     project_ids = list(set(t.project_id for t in tickets if t.project_id))

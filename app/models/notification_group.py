@@ -12,6 +12,7 @@ class ChannelType(str, Enum):
     FEISHU = "feishu"
     EMAIL = "email"
     SMS = "sms"
+    SLACK = "slack"
 
 
 class RepeatInterval(int, Enum):
@@ -57,7 +58,7 @@ class NotificationGroup(Document):
         name = "notification_groups"
         use_state_management = True
 
-    class Config:
+    class Config: # type: ignore
         json_schema_extra = {
             "example": {
                 "name": "On-call Team",
