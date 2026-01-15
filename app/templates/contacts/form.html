@@ -25,34 +25,66 @@
         
         <div class="form-group">
             <label for="phones" class="form-label">手机号</label>
-            <input type="text" id="phones" name="phones" class="form-input"
-                   value="{{ contact.phones|join(', ') if contact else '' }}"
-                   placeholder="多个号码用逗号分隔">
+            <div class="flex gap-2">
+                <input type="text" id="phones" name="phones" class="form-input flex-1"
+                       value="{{ contact.phones|join(', ') if contact else '' }}"
+                       placeholder="多个号码用逗号分隔">
+                {% if contact %}
+                <button type="button" id="test-phone-btn" class="btn-secondary whitespace-nowrap">
+                    Test!
+                </button>
+                {% endif %}
+            </div>
             <p class="text-xs text-gray-500 mt-1">用于短信通知，多个号码用逗号分隔</p>
+            <p id="phone-test-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
             <label for="emails" class="form-label">邮箱</label>
-            <input type="text" id="emails" name="emails" class="form-input"
-                   value="{{ contact.emails|join(', ') if contact else '' }}"
-                   placeholder="多个邮箱用逗号分隔">
+            <div class="flex gap-2">
+                <input type="text" id="emails" name="emails" class="form-input flex-1"
+                       value="{{ contact.emails|join(', ') if contact else '' }}"
+                       placeholder="多个邮箱用逗号分隔">
+                {% if contact %}
+                <button type="button" id="test-email-btn" class="btn-secondary whitespace-nowrap">
+                    Test!
+                </button>
+                {% endif %}
+            </div>
             <p class="text-xs text-gray-500 mt-1">用于邮件通知，多个邮箱用逗号分隔</p>
+            <p id="email-test-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
             <label for="feishu_webhook_url" class="form-label">飞书 Webhook URL</label>
-            <input type="url" id="feishu_webhook_url" name="feishu_webhook_url" class="form-input"
-                   value="{{ contact.feishu_webhook_url if contact else '' }}"
-                   placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx">
+            <div class="flex gap-2">
+                <input type="url" id="feishu_webhook_url" name="feishu_webhook_url" class="form-input flex-1"
+                       value="{{ contact.feishu_webhook_url if contact else '' }}"
+                       placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx">
+                {% if contact %}
+                <button type="button" id="test-feishu-btn" class="btn-secondary whitespace-nowrap">
+                    Test!
+                </button>
+                {% endif %}
+            </div>
             <p class="text-xs text-gray-500 mt-1">用于飞书机器人通知</p>
+            <p id="feishu-test-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
             <label for="slack_webhook_url" class="form-label">Slack Webhook URL</label>
-            <input type="url" id="slack_webhook_url" name="slack_webhook_url" class="form-input"
-                   value="{{ contact.slack_webhook_url if contact else '' }}"
-                   placeholder="https://hooks.slack.com/services/xxx/xxx/xxx">
+            <div class="flex gap-2">
+                <input type="url" id="slack_webhook_url" name="slack_webhook_url" class="form-input flex-1"
+                       value="{{ contact.slack_webhook_url if contact else '' }}"
+                       placeholder="https://hooks.slack.com/services/xxx/xxx/xxx">
+                {% if contact %}
+                <button type="button" id="test-slack-webhook-btn" class="btn-secondary whitespace-nowrap">
+                    Test!
+                </button>
+                {% endif %}
+            </div>
             <p class="text-xs text-gray-500 mt-1">用于 Slack Public Channel 通知</p>
+            <p id="slack-webhook-test-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
@@ -64,9 +96,15 @@
                 <button type="button" id="lookup-slack-btn" class="btn-secondary whitespace-nowrap">
                     Lookup by Email
                 </button>
+                {% if contact %}
+                <button type="button" id="test-slack-channel-btn" class="btn-secondary whitespace-nowrap">
+                    Test!
+                </button>
+                {% endif %}
             </div>
             <p class="text-xs text-gray-500 mt-1">用于 Slack Direct Message 通知</p>
             <p id="slack-lookup-result" class="text-xs mt-1 hidden"></p>
+            <p id="slack-channel-test-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
@@ -131,6 +169,121 @@ document.getElementById('lookup-slack-btn').addEventListener('click', async func
         resultEl.classList.remove('hidden');
     }
 });
+
+// Generic test button handler
+async function handleTestButton(btn, endpoint, paramName, inputEl, resultEl, getFirstValue = false) {
+    let value = inputEl.value.trim();
+    
+    if (getFirstValue) {
+        const values = value.split(',').map(v => v.trim()).filter(v => v);
+        if (values.length === 0) {
+            resultEl.textContent = '请先填写内容';
+            resultEl.className = 'text-xs mt-1 text-red-600';
+            resultEl.classList.remove('hidden');
+            return;
+        }
+        value = values[0];
+    } else if (!value) {
+        resultEl.textContent = '请先填写内容';
+        resultEl.className = 'text-xs mt-1 text-red-600';
+        resultEl.classList.remove('hidden');
+        return;
+    }
+    
+    btn.disabled = true;
+    const originalText = btn.textContent;
+    btn.textContent = 'Sending...';
+    resultEl.classList.add('hidden');
+    
+    try {
+        const formData = new FormData();
+        formData.append(paramName, value);
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            body: formData,
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            resultEl.textContent = data.message || 'Sent successfully!';
+            resultEl.className = 'text-xs mt-1 text-green-600';
+        } else {
+            resultEl.textContent = data.error || 'Failed to send';
+            resultEl.className = 'text-xs mt-1 text-red-600';
+        }
+    } catch (err) {
+        resultEl.textContent = 'Network error: ' + err.message;
+        resultEl.className = 'text-xs mt-1 text-red-600';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+        resultEl.classList.remove('hidden');
+    }
+}
+
+{% if contact %}
+// Phone test button
+document.getElementById('test-phone-btn')?.addEventListener('click', function() {
+    handleTestButton(
+        this,
+        '/contacts/test-phone',
+        'phone',
+        document.getElementById('phones'),
+        document.getElementById('phone-test-result'),
+        true
+    );
+});
+
+// Email test button
+document.getElementById('test-email-btn')?.addEventListener('click', function() {
+    handleTestButton(
+        this,
+        '/contacts/test-email',
+        'email',
+        document.getElementById('emails'),
+        document.getElementById('email-test-result'),
+        true
+    );
+});
+
+// Feishu test button
+document.getElementById('test-feishu-btn')?.addEventListener('click', function() {
+    handleTestButton(
+        this,
+        '/contacts/test-feishu',
+        'webhook_url',
+        document.getElementById('feishu_webhook_url'),
+        document.getElementById('feishu-test-result'),
+        false
+    );
+});
+
+// Slack webhook test button
+document.getElementById('test-slack-webhook-btn')?.addEventListener('click', function() {
+    handleTestButton(
+        this,
+        '/contacts/test-slack-webhook',
+        'webhook_url',
+        document.getElementById('slack_webhook_url'),
+        document.getElementById('slack-webhook-test-result'),
+        false
+    );
+});
+
+// Slack channel test button
+document.getElementById('test-slack-channel-btn')?.addEventListener('click', function() {
+    handleTestButton(
+        this,
+        '/contacts/test-slack-channel',
+        'channel_id',
+        document.getElementById('slack_channel_id'),
+        document.getElementById('slack-channel-test-result'),
+        false
+    );
+});
+{% endif %}
 </script>
 {% endblock %}
 
