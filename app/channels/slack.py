@@ -1,9 +1,11 @@
-"""Slack notification channel using Incoming Webhooks."""
+"""Slack notification channels using Incoming Webhooks and Bot API."""
 
 import logging
 from typing import Any
 
 import httpx
+from slack_sdk.web.async_client import AsyncWebClient
+from slack_sdk.errors import SlackApiError
 
 from app.channels.base import BaseChannel
 from app.models.event import Event
@@ -14,21 +16,11 @@ logger = logging.getLogger(__name__)
 TEMPLATE_BLOCKS_KEY = "template_slack_blocks"
 
 
-class SlackWebhookChannel(BaseChannel):
-    """Slack notification channel using Incoming Webhooks."""
+class SlackMessageFormatter:
+    """Mixin providing shared message building methods for Slack channels."""
 
-    def __init__(self, webhook_url: str):
-        self._webhook_url = webhook_url
-
-    @property
-    def name(self) -> str:
-        return "slack-webhook"
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self._webhook_url)
-
-    def _get_severity_emoji(self, severity: str) -> str:
+    @staticmethod
+    def _get_severity_emoji(severity: str) -> str:
         """Get emoji based on severity level."""
         severity_map = {
             "critical": "🔴",
@@ -38,7 +30,8 @@ class SlackWebhookChannel(BaseChannel):
         }
         return severity_map.get(severity.lower(), "🔵")
 
-    def _build_text_message(self, event: Event) -> dict[str, Any]:
+    @staticmethod
+    def _build_text_message(event: Event) -> dict[str, Any]:
         """Build a simple text message for generic events."""
         import json
 
@@ -51,7 +44,8 @@ class SlackWebhookChannel(BaseChannel):
         )
         return {"text": text}
 
-    def _build_ticket_blocks(self, event: Event) -> dict[str, Any]:
+    @staticmethod
+    def build_ticket_blocks(event: Event) -> dict[str, Any]:
         """Build a rich Block Kit message for ticket notifications with ack link."""
         from app.config import get_settings
 
@@ -68,7 +62,7 @@ class SlackWebhookChannel(BaseChannel):
         ack_url = f"{settings.base_url}/ack/{ticket_id}?token={ack_token}&format=html"
         detail_url = f"{settings.base_url}/tickets/{ticket_id}"
 
-        severity_emoji = self._get_severity_emoji(severity)
+        severity_emoji = SlackMessageFormatter._get_severity_emoji(severity)
 
         blocks: list[dict[str, Any]] = []
 
@@ -151,7 +145,8 @@ class SlackWebhookChannel(BaseChannel):
             "blocks": blocks,
         }
 
-    def _build_blocks_from_template(self, blocks_content: list[dict[str, Any]]) -> dict[str, Any]:
+    @staticmethod
+    def build_blocks_from_template(blocks_content: list[dict[str, Any]]) -> dict[str, Any]:
         """Build Slack message from pre-rendered template blocks."""
         # Extract fallback text from first text block if available
         fallback_text = "Notification"
@@ -170,28 +165,46 @@ class SlackWebhookChannel(BaseChannel):
             "blocks": blocks_content,
         }
 
+    @staticmethod
+    def build_message(event: Event) -> dict[str, Any]:
+        """Build message based on event content."""
+        # Check if pre-rendered template blocks are available
+        if event.meta and event.meta.get(TEMPLATE_BLOCKS_KEY):
+            template_blocks = event.meta[TEMPLATE_BLOCKS_KEY]
+            if isinstance(template_blocks, list):
+                return SlackMessageFormatter.build_blocks_from_template(template_blocks)
+            else:
+                logger.warning("Invalid template blocks format, falling back to default")
+                return SlackMessageFormatter.build_ticket_blocks(event)
+        # If meta contains ticket_id, use the ticket block format with ack button
+        elif event.meta and event.meta.get("ticket_id"):
+            return SlackMessageFormatter.build_ticket_blocks(event)
+        else:
+            return SlackMessageFormatter._build_text_message(event)
+
+
+class SlackWebhookChannel(BaseChannel):
+    """Slack notification channel using Incoming Webhooks."""
+    formatter: SlackMessageFormatter = SlackMessageFormatter()
+
+    def __init__(self, webhook_url: str):
+        self._webhook_url = webhook_url
+
+    @property
+    def name(self) -> str:
+        return "slack-webhook"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._webhook_url)
+
     async def send(self, event: Event) -> bool:
         """Send notification to Slack via webhook."""
         if not self.enabled:
             logger.warning("Slack channel is not properly configured (missing webhook_url)")
             return False
 
-        # Determine message format based on event content
-        message: dict[str, Any]
-
-        # Check if pre-rendered template blocks are available
-        if event.meta and event.meta.get(TEMPLATE_BLOCKS_KEY):
-            template_blocks = event.meta[TEMPLATE_BLOCKS_KEY]
-            if isinstance(template_blocks, list):
-                message = self._build_blocks_from_template(template_blocks)
-            else:
-                logger.warning("Invalid template blocks format, falling back to default")
-                message = self._build_ticket_blocks(event)
-        # If meta contains ticket_id, use the ticket block format with ack button
-        elif event.meta and event.meta.get("ticket_id"):
-            message = self._build_ticket_blocks(event)
-        else:
-            message = self._build_text_message(event)
+        message = self.formatter.build_message(event)
 
         headers = {"Content-Type": "application/json"}
 
@@ -206,3 +219,47 @@ class SlackWebhookChannel(BaseChannel):
 
             logger.info("Message sent to Slack webhook successfully")
             return True
+
+
+class SlackBotChannel(BaseChannel):
+    """Slack notification channel using Bot API for private channels."""
+    formatter: SlackMessageFormatter = SlackMessageFormatter()
+
+    def __init__(self, bot_token: str, channel_id: str):
+        self._bot_token = bot_token
+        self._channel_id = channel_id
+        self._client = AsyncWebClient(token=bot_token)
+
+    @property
+    def name(self) -> str:
+        return "slack-bot"
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self._bot_token and self._channel_id)
+
+    async def send(self, event: Event) -> bool:
+        """Send notification to Slack private channel via Bot API."""
+        if not self.enabled:
+            logger.warning("Slack bot channel is not properly configured (missing bot_token or channel_id)")
+            return False
+
+        message = self.formatter.build_message(event)
+
+        try:
+            response = await self._client.chat_postMessage(
+                channel=self._channel_id,
+                text=message.get("text", "Notification"),
+                blocks=message.get("blocks"),
+            )
+
+            if response["ok"]:
+                logger.info(f"Message sent to Slack channel {self._channel_id} successfully")
+                return True
+            else:
+                logger.error(f"Slack API error: {response.get('error', 'unknown error')}")
+                return False
+
+        except SlackApiError as e:
+            logger.error(f"Slack API error: {e.response['error']}")
+            return False

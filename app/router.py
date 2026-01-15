@@ -9,6 +9,7 @@ import yaml
 from app.channels.base import BaseChannel
 from app.channels.feishu import FeishuChannel
 from app.channels.resend_email import ResendEmailChannel
+from app.channels.slack import SlackWebhookChannel, SlackBotChannel
 from app.config import get_settings
 from app.models.alert import AlertGroup
 from app.models.event import Event
@@ -52,6 +53,15 @@ def create_channel_from_config(config: ChannelConfig) -> BaseChannel:
             reply_to=reply_to,
             api_url=api_url,
             name=config.name,
+        )
+    elif config.type == "slack-webhook":
+        return SlackWebhookChannel(
+            webhook_url=config.webhook_url,
+        )
+    elif config.type == "slack-bot":
+        return SlackBotChannel(
+            bot_token=config.bot_token,
+            channel_id=config.channel_id,
         )
     else:
         raise ValueError(f"Unknown channel type: {config.type}")
