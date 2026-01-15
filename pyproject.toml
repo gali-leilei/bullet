@@ -22,6 +22,7 @@ dependencies = [
     "apscheduler>=3.10.0",
     # Twilio SMS
     "twilio>=9.0.0",
+    "slack-sdk>=3.39.0",
 ]
 
 [project.scripts]

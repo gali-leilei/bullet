@@ -52,15 +52,21 @@
             <input type="url" id="slack_webhook_url" name="slack_webhook_url" class="form-input"
                    value="{{ contact.slack_webhook_url if contact else '' }}"
                    placeholder="https://hooks.slack.com/services/xxx/xxx/xxx">
-            <p class="text-xs text-gray-500 mt-1">用于 Slack Incoming Webhook 通知</p>
+            <p class="text-xs text-gray-500 mt-1">用于 Slack Public Channel 通知</p>
         </div>
         
         <div class="form-group">
-            <label for="slack_bot_token" class="form-label">Slack Bot Token</label>
-            <input type="url" id="slack_bot_token" name="slack_bot_token" class="form-input"
-                   value="{{ contact.slack_bot_url if contact else '' }}"
-                   placeholder="https://slack.com/api/chat.postMessage">
-            <p class="text-xs text-gray-500 mt-1">用于 Slack Bot API 通知</p>
+            <label for="slack_channel_id" class="form-label">Slack Channel ID</label>
+            <div class="flex gap-2">
+                <input type="text" id="slack_channel_id" name="slack_channel_id" class="form-input flex-1"
+                       value="{{ contact.slack_channel_id if contact else '' }}"
+                       placeholder="C01234567 or U01234567">
+                <button type="button" id="lookup-slack-btn" class="btn-secondary whitespace-nowrap">
+                    Lookup by Email
+                </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">用于 Slack Direct Message 通知</p>
+            <p id="slack-lookup-result" class="text-xs mt-1 hidden"></p>
         </div>
         
         <div class="form-group">
@@ -75,5 +81,56 @@
         </div>
     </form>
 </div>
+
+<script>
+document.getElementById('lookup-slack-btn').addEventListener('click', async function() {
+    const emailInput = document.getElementById('emails');
+    const slackIdInput = document.getElementById('slack_channel_id');
+    const resultEl = document.getElementById('slack-lookup-result');
+    const btn = this;
+    
+    // Get the first email from the comma-separated list
+    const emails = emailInput.value.split(',').map(e => e.trim()).filter(e => e);
+    if (emails.length === 0) {
+        resultEl.textContent = '请先填写邮箱地址';
+        resultEl.className = 'text-xs mt-1 text-red-600';
+        resultEl.classList.remove('hidden');
+        return;
+    }
+    
+    const email = emails[0];
+    btn.disabled = true;
+    btn.textContent = 'Looking up...';
+    resultEl.classList.add('hidden');
+    
+    try {
+        const formData = new FormData();
+        formData.append('email', email);
+        
+        const response = await fetch('/contacts/lookup-slack-user', {
+            method: 'POST',
+            body: formData,
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            slackIdInput.value = data.user_id;
+            resultEl.textContent = `Found: ${data.user_name} (${data.user_id})`;
+            resultEl.className = 'text-xs mt-1 text-green-600';
+        } else {
+            resultEl.textContent = data.error || 'Lookup failed';
+            resultEl.className = 'text-xs mt-1 text-red-600';
+        }
+    } catch (err) {
+        resultEl.textContent = 'Network error: ' + err.message;
+        resultEl.className = 'text-xs mt-1 text-red-600';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Lookup by Email';
+        resultEl.classList.remove('hidden');
+    }
+});
+</script>
 {% endblock %}
 

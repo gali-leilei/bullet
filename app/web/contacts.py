@@ -1,14 +1,18 @@
 """Contact management routes."""
 
+import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Form, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from app.config import get_settings
 from app.deps import AdminUser, CurrentUser
 from app.models.contact import Contact
 from app.models.user import User
 from app.web.templates import templates
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -39,7 +43,7 @@ def mask_contact_for_display(contact: Contact, user: User) -> dict:
         "name": contact.name,
         "feishu_webhook_url": contact.feishu_webhook_url,
         "slack_webhook_url": contact.slack_webhook_url,
-        "slack_bot_token": contact.slack_bot_token,
+        "slack_channel_id": contact.slack_channel_id,
         "note": contact.note,
         "created_at": contact.created_at,
         "updated_at": contact.updated_at,
@@ -78,6 +82,47 @@ async def new_contact_form(request: Request, admin: AdminUser):
     )
 
 
+@router.post("/lookup-slack-user")
+async def lookup_slack_user(admin: AdminUser, email: str = Form(...)):
+    """Look up Slack user ID by email. Admin only."""
+    settings = get_settings()
+    
+    if not settings.slack_bot_token:
+        return JSONResponse(
+            {"error": "Slack bot token not configured"},
+            status_code=400,
+        )
+    
+    from slack_sdk.web.async_client import AsyncWebClient
+    from slack_sdk.errors import SlackApiError
+    
+    try:
+        client = AsyncWebClient(token=settings.slack_bot_token)
+        response = await client.users_lookupByEmail(email=email)
+        
+        user_data = response.get("user") or {}
+        user_id = user_data.get("id", "")
+        user_name = user_data.get("real_name") or user_data.get("name", "")
+        
+        return JSONResponse({
+            "user_id": user_id,
+            "user_name": user_name,
+        })
+    except SlackApiError as e:
+        error_msg = e.response.get("error", "Unknown error")
+        logger.warning(f"Slack user lookup failed for {email}: {error_msg}")
+        return JSONResponse(
+            {"error": f"Slack API error: {error_msg}"},
+            status_code=400,
+        )
+    except Exception as e:
+        logger.exception(f"Unexpected error during Slack user lookup: {e}")
+        return JSONResponse(
+            {"error": str(e)},
+            status_code=500,
+        )
+
+
 @router.post("/new", response_class=HTMLResponse)
 async def create_contact(
     name: str = Form(...),
@@ -85,7 +130,7 @@ async def create_contact(
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
     slack_webhook_url: str = Form(""),
-    slack_bot_token: str = Form(""),
+    slack_channel_id: str = Form(""),
     note: str = Form(""),
 ):
     """Create a new contact. Admin only."""
@@ -99,7 +144,7 @@ async def create_contact(
         emails=email_list,
         feishu_webhook_url=feishu_webhook_url,
         slack_webhook_url=slack_webhook_url,
-        slack_bot_token=slack_bot_token,
+        slack_channel_id=slack_channel_id,
         note=note,
     )
     await contact.insert()
@@ -129,7 +174,7 @@ async def update_contact(
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
     slack_webhook_url: str = Form(""),
-    slack_bot_token: str = Form(""),
+    slack_channel_id: str = Form(""),
     note: str = Form(""),
 ):
     """Update a contact. Admin only."""
@@ -146,7 +191,7 @@ async def update_contact(
     contact.emails = email_list
     contact.feishu_webhook_url = feishu_webhook_url
     contact.slack_webhook_url = slack_webhook_url
-    contact.slack_bot_token = slack_bot_token
+    contact.slack_channel_id = slack_channel_id
     contact.note = note
     contact.updated_at = datetime.utcnow()
 
