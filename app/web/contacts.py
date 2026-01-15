@@ -39,6 +39,7 @@ def mask_contact_for_display(contact: Contact, user: User) -> dict:
         "name": contact.name,
         "feishu_webhook_url": contact.feishu_webhook_url,
         "slack_webhook_url": contact.slack_webhook_url,
+        "slack_bot_token": contact.slack_bot_token,
         "note": contact.note,
         "created_at": contact.created_at,
         "updated_at": contact.updated_at,
@@ -84,6 +85,7 @@ async def create_contact(
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
     slack_webhook_url: str = Form(""),
+    slack_bot_token: str = Form(""),
     note: str = Form(""),
 ):
     """Create a new contact. Admin only."""
@@ -97,6 +99,7 @@ async def create_contact(
         emails=email_list,
         feishu_webhook_url=feishu_webhook_url,
         slack_webhook_url=slack_webhook_url,
+        slack_bot_token=slack_bot_token,
         note=note,
     )
     await contact.insert()
@@ -126,6 +129,7 @@ async def update_contact(
     emails: str = Form(""),
     feishu_webhook_url: str = Form(""),
     slack_webhook_url: str = Form(""),
+    slack_bot_token: str = Form(""),
     note: str = Form(""),
 ):
     """Update a contact. Admin only."""
@@ -142,6 +146,7 @@ async def update_contact(
     contact.emails = email_list
     contact.feishu_webhook_url = feishu_webhook_url
     contact.slack_webhook_url = slack_webhook_url
+    contact.slack_bot_token = slack_bot_token
     contact.note = note
     contact.updated_at = datetime.utcnow()
 

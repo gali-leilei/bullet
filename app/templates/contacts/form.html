@@ -52,7 +52,15 @@
             <input type="url" id="slack_webhook_url" name="slack_webhook_url" class="form-input"
                    value="{{ contact.slack_webhook_url if contact else '' }}"
                    placeholder="https://hooks.slack.com/services/xxx/xxx/xxx">
-            <p class="text-xs text-gray-500 mt-1">用于 Slack 机器人通知</p>
+            <p class="text-xs text-gray-500 mt-1">用于 Slack Incoming Webhook 通知</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="slack_bot_token" class="form-label">Slack Bot Token</label>
+            <input type="url" id="slack_bot_token" name="slack_bot_token" class="form-input"
+                   value="{{ contact.slack_bot_url if contact else '' }}"
+                   placeholder="https://slack.com/api/chat.postMessage">
+            <p class="text-xs text-gray-500 mt-1">用于 Slack Bot API 通知</p>
         </div>
         
         <div class="form-group">
