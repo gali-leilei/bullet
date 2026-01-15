@@ -186,7 +186,7 @@ class NotificationService:
                 if contact.slack_webhook_url:
                     channel = SlackWebhookChannel(webhook_url=contact.slack_webhook_url)
                     success = await channel.send_safe(event)
-                    results[f"slack:{contact.name}"] = success
+                    results[f"slack-webhook:{contact.name}"] = success
                 else:
                     logger.warning(f"Contact {contact.name} has no slack_webhook_url")
 
@@ -195,7 +195,7 @@ class NotificationService:
                 if contact.slack_channel_id:
                     channel = SlackBotChannel(bot_token=settings.slack_bot_token, channel_id=contact.slack_channel_id)
                     success = await channel.send_safe(event)
-                    results[f"slack:{contact.name}"] = success
+                    results[f"slack-bot:{contact.name}"] = success
                 else:
                     logger.warning(f"Contact {contact.name} has no slack_bot_token")
 
